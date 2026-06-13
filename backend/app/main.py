@@ -1,0 +1,66 @@
+import logging
+
+import httpx
+from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
+
+from app.config import get_settings
+from app.services.lesson_loader import list_lessons, load_lessons
+from app.ws.router import router as ws_router
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+settings = get_settings()
+
+app = FastAPI(title="GrammarBuddy API", version="0.1.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.cors_origin_list,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(ws_router)
+
+
+@app.on_event("startup")
+async def startup() -> None:
+    lessons = load_lessons()
+    logger.info("Loaded %d lesson templates", len(lessons))
+
+
+@app.get("/health")
+async def health() -> dict:
+    return {"status": "ok"}
+
+
+@app.get("/api/lessons")
+async def get_lessons() -> dict:
+    return {"lessons": [l.model_dump() for l in list_lessons()]}
+
+
+_ALLOWED_TTS_HOSTS = (
+    "dashscope-result-bj.oss-cn-beijing.aliyuncs.com",
+    "dashscope-result-sh.oss-cn-shanghai.aliyuncs.com",
+)
+
+
+@app.get("/api/tts/proxy")
+async def proxy_tts_audio(url: str = Query(..., min_length=8)) -> Response:
+    """Proxy DashScope TTS audio so the browser can fetch without CORS issues."""
+    from urllib.parse import urlparse
+
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https") or parsed.hostname not in _ALLOWED_TTS_HOSTS:
+        raise HTTPException(status_code=400, detail="Invalid TTS audio URL")
+
+    async with httpx.AsyncClient(timeout=30.0, follow_redirects=True) as client:
+        resp = await client.get(url)
+        resp.raise_for_status()
+
+    content_type = resp.headers.get("content-type") or "audio/wav"
+    return Response(content=resp.content, media_type=content_type)

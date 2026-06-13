@@ -1,0 +1,25 @@
+{
+  "id": "past_simple",
+  "display_name": "一般过去时",
+  "display_name_en": "Past Simple",
+  "grammar_focus": "simple past tense",
+  "description": "描述过去已完成的动作或状态。",
+  "description_en": "Actions or states completed in the past.",
+  "example_patterns": [
+    "I walked to school yesterday.",
+    "She went to the park last Sunday."
+  ],
+  "starter_questions": [
+    "What did you do yesterday?",
+    "Where did you go last weekend?",
+    "What did you eat for lunch yesterday?",
+    "Who did you play with after school?",
+    "What did you watch on TV yesterday?"
+  ],
+  "error_hints": [
+    "Use past form: go → went, eat → ate",
+    "Time words: yesterday, last week, ago"
+  ],
+  "kid_friendly_rule": "When it already happened, use the past word for the action.",
+  "grade_range": [2, 5]
+}

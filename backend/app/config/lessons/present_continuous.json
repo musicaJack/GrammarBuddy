@@ -1,0 +1,25 @@
+{
+  "id": "present_continuous",
+  "display_name": "现在进行时",
+  "display_name_en": "Present Continuous",
+  "grammar_focus": "present continuous tense",
+  "description": "描述此刻正在进行的动作。",
+  "description_en": "Actions happening right now.",
+  "example_patterns": [
+    "I am reading a book.",
+    "She is playing soccer now."
+  ],
+  "starter_questions": [
+    "What are you doing now?",
+    "What is your friend doing?",
+    "What is your mom cooking right now?",
+    "What are the kids playing in the park?",
+    "What are you listening to right now?"
+  ],
+  "error_hints": [
+    "Use am/is/are + verb-ing",
+    "Do not forget the -ing ending"
+  ],
+  "kid_friendly_rule": "For right now, use am/is/are plus the -ing word.",
+  "grade_range": [2, 5]
+}

@@ -1,0 +1,25 @@
+{
+  "id": "present_simple",
+  "display_name": "一般现在时",
+  "display_name_en": "Present Simple",
+  "grammar_focus": "simple present tense",
+  "description": "描述经常发生的动作、习惯或事实。",
+  "description_en": "Habits, facts, and things that happen regularly.",
+  "example_patterns": [
+    "I go to school every day.",
+    "She likes apples."
+  ],
+  "starter_questions": [
+    "What do you do after school?",
+    "What does your family eat for breakfast?",
+    "What sport do you like?",
+    "What time do you go to bed?",
+    "What does your best friend like to do?"
+  ],
+  "error_hints": [
+    "Use base verb; add -s for he/she/it: play → plays",
+    "Use do/does for questions: Do you like ...?"
+  ],
+  "kid_friendly_rule": "For things that happen often, use the normal verb. Add -s for he, she, or it.",
+  "grade_range": [2, 5]
+}
