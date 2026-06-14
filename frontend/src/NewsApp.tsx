@@ -57,6 +57,7 @@ function NewsScreenContent({
   listenHint,
   isAiSpeaking,
   isTtsLoading,
+  isPlaybackPaused,
   loadingLabel,
 }: {
   uiState: NewsUIState;
@@ -71,6 +72,7 @@ function NewsScreenContent({
   listenHint: string;
   isAiSpeaking: boolean;
   isTtsLoading: boolean;
+  isPlaybackPaused: boolean;
   loadingLabel: string;
 }) {
   if (errorMessage) {
@@ -104,6 +106,16 @@ function NewsScreenContent({
   }
 
   if (uiState === "BROADCAST") {
+    if (isPlaybackPaused) {
+      return (
+        <>
+          <p className="screen-title">📰 News</p>
+          <p className="screen-sub screen-sub--lesson">{article?.title}</p>
+          <p className="screen-title">⏸ Paused</p>
+          <p className="tap-hint">点圆屏继续播报</p>
+        </>
+      );
+    }
     return (
       <>
         <p className="screen-title">📰 News</p>
@@ -122,6 +134,15 @@ function NewsScreenContent({
   }
 
   if (uiState === "OPEN_QUESTION" && isAiSpeaking) {
+    if (isPlaybackPaused) {
+      return (
+        <>
+          <p className="screen-title">Question</p>
+          <p className="screen-title">⏸ Paused</p>
+          <p className="tap-hint">点圆屏继续播报</p>
+        </>
+      );
+    }
     return (
       <>
         <p className="screen-title">Question</p>
@@ -129,6 +150,18 @@ function NewsScreenContent({
         <p className="screen-sub">请看右侧文字稿</p>
       </>
     );
+  }
+
+  if (uiState === "OPEN_QUESTION" && !isAiSpeaking) {
+    if (isPlaybackPaused) {
+      return (
+        <>
+          <p className="screen-title">Question</p>
+          <p className="screen-title">⏸ Paused</p>
+          <p className="tap-hint">点圆屏继续播报</p>
+        </>
+      );
+    }
   }
 
   if (uiState === "OPEN_QUESTION") {
@@ -179,6 +212,14 @@ function NewsScreenContent({
   }
 
   if (uiState === "THINKING") {
+    if (isPlaybackPaused) {
+      return (
+        <>
+          <p className="screen-title">⏸ Paused</p>
+          <p className="tap-hint">点圆屏继续播报</p>
+        </>
+      );
+    }
     return (
       <>
         <p className="screen-title">Thinking…</p>
@@ -197,6 +238,15 @@ function NewsScreenContent({
   }
 
   if (uiState === "WRAP_UP" && wrapUp) {
+    if (isPlaybackPaused) {
+      return (
+        <>
+          <p className="screen-title">Summary</p>
+          <p className="screen-title">⏸ Paused</p>
+          <p className="tap-hint">点圆屏继续播报</p>
+        </>
+      );
+    }
     return (
       <>
         <p className="screen-title">Summary</p>
@@ -257,7 +307,7 @@ export function NewsApp({ onBack }: { onBack: () => void }) {
   const pausedRef = useRef(false);
   const audioEnabledRef = useRef(true);
 
-  const { enqueue, runAfterIdle, stop: stopAudio, unlock: unlockAudio, isPlaying } =
+  const { enqueue, runAfterIdle, stop: stopAudio, pause: pausePlayback, resume: resumePlayback, unlock: unlockAudio, isPlaying, isPaused: isPlaybackPaused } =
     useAudioPlayer();
 
   const micActive = uiState === "LISTENING" && !isPlaying;
@@ -374,32 +424,6 @@ export function NewsApp({ onBack }: { onBack: () => void }) {
   }, [beginListening, runAfterIdle]);
 
   startListeningRef.current = scheduleListen;
-
-  const pauseSession = useCallback(() => {
-    const sid = sessionIdRef.current;
-    if (!sid || uiStateRef.current === "PAUSED") return;
-    stopAudio();
-    setSpeakingId(null);
-    setSpeakingWordIndex(null);
-    pausedRef.current = true;
-    sendRef.current({
-      type: "control",
-      session_id: sid,
-      payload: { action: "pause_session", session_id: sid },
-    });
-    setUiState("PAUSED");
-  }, [stopAudio]);
-
-  const resumeSession = useCallback(() => {
-    const sid = sessionIdRef.current;
-    if (!sid) return;
-    pausedRef.current = false;
-    sendRef.current({
-      type: "control",
-      session_id: sid,
-      payload: { action: "resume_session", session_id: sid },
-    });
-  }, []);
 
   const submitRecording = useCallback(async () => {
     if (submitting || uiStateRef.current !== "LISTENING") return;
@@ -632,27 +656,25 @@ export function NewsApp({ onBack }: { onBack: () => void }) {
       return;
     }
 
-    if (uiStateRef.current === "PAUSED") {
-      resumeSession();
+    const state = uiStateRef.current;
+    const ttsPlaybackPhase =
+      state === "BROADCAST" ||
+      state === "OPEN_QUESTION" ||
+      state === "WRAP_UP" ||
+      state === "THINKING";
+
+    if (isPlaybackPaused) {
+      void resumePlayback();
       return;
     }
 
-    if (uiStateRef.current === "LISTENING") {
+    if (state === "LISTENING") {
       void submitRecording();
       return;
     }
 
-    if (
-      uiStateRef.current === "BROADCAST" ||
-      uiStateRef.current === "OPEN_QUESTION" ||
-      uiStateRef.current === "WRAP_UP"
-    ) {
-      pauseSession();
-      return;
-    }
-
-    if (isPlaying) {
-      pauseSession();
+    if (ttsPlaybackPhase && isPlaying) {
+      pausePlayback();
       return;
     }
 
@@ -668,9 +690,10 @@ export function NewsApp({ onBack }: { onBack: () => void }) {
   }, [
     connected,
     errorMessage,
+    isPlaybackPaused,
     isPlaying,
-    pauseSession,
-    resumeSession,
+    pausePlayback,
+    resumePlayback,
     startSession,
     submitRecording,
     unlockAudio,
@@ -683,10 +706,11 @@ export function NewsApp({ onBack }: { onBack: () => void }) {
     connected &&
     !submitting &&
     (uiState === "LISTENING" ||
-      uiState === "PAUSED" ||
+      isPlaybackPaused ||
       uiState === "BROADCAST" ||
       uiState === "OPEN_QUESTION" ||
       uiState === "WRAP_UP" ||
+      uiState === "THINKING" ||
       !sessionReady ||
       !!errorMessage);
 
@@ -752,6 +776,7 @@ export function NewsApp({ onBack }: { onBack: () => void }) {
               listenHint={listenHint}
               isAiSpeaking={isAiSpeaking}
               isTtsLoading={isTtsLoading}
+              isPlaybackPaused={isPlaybackPaused}
               loadingLabel={loadingLabel}
             />
           </RoundScreen>

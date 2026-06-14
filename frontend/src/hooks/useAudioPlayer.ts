@@ -44,7 +44,22 @@ export function useAudioPlayer() {
   const progressTimerRef = useRef<number | null>(null);
   const playGenerationRef = useRef(0);
   const activeSourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const pausedRef = useRef(false);
+  const pausedElementTimeRef = useRef(0);
+  const currentItemRef = useRef<AudioItem | null>(null);
+  const webAudioTimingRef = useRef<{
+    ctx: AudioContext;
+    startAt: number;
+    buffer: AudioBuffer;
+  } | null>(null);
+  const pausedWebAudioRef = useRef<{
+    item: AudioItem;
+    buffer: AudioBuffer;
+    offset: number;
+    generation: number;
+  } | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
 
   const isStopped = useCallback(
     (generation: number) => generation !== playGenerationRef.current,
@@ -144,6 +159,7 @@ export function useAudioPlayer() {
           source.connect(ctx.destination);
           activeSourceRef.current = source;
           const startAt = ctx.currentTime;
+          webAudioTimingRef.current = { ctx, startAt, buffer };
           startProgressTimer(
             item,
             () => (ctx.currentTime - startAt) / buffer.duration,
@@ -153,12 +169,13 @@ export function useAudioPlayer() {
             if (activeSourceRef.current === source) {
               activeSourceRef.current = null;
             }
+            webAudioTimingRef.current = null;
             clearProgressTimer();
             resolve();
           };
           source.start(0);
         });
-        return !isStopped(generation);
+        return !isStopped(generation) && !pausedRef.current;
       } catch {
         clearProgressTimer();
         return false;
@@ -284,9 +301,58 @@ export function useAudioPlayer() {
     [ensureContext, isStopped, playWithElement, playWithWebAudio],
   );
 
+  const resumeWebAudioFromOffset = useCallback(
+    async (
+      item: AudioItem,
+      buffer: AudioBuffer,
+      offset: number,
+      generation: number,
+    ): Promise<boolean> => {
+      if (isStopped(generation) || pausedRef.current) return false;
+      const ctx = await ensureContext();
+      if (!ctx || isStopped(generation)) return false;
+      const safeOffset = Math.min(Math.max(offset, 0), buffer.duration);
+      try {
+        await new Promise<void>((resolve) => {
+          if (isStopped(generation) || pausedRef.current) {
+            resolve();
+            return;
+          }
+          const source = ctx.createBufferSource();
+          source.buffer = buffer;
+          source.connect(ctx.destination);
+          activeSourceRef.current = source;
+          const startAt = ctx.currentTime;
+          webAudioTimingRef.current = { ctx, startAt, buffer };
+          startProgressTimer(
+            item,
+            () =>
+              (safeOffset + (ctx.currentTime - startAt)) /
+              Math.max(buffer.duration, 0.001),
+            generation,
+          );
+          source.onended = () => {
+            if (activeSourceRef.current === source) {
+              activeSourceRef.current = null;
+            }
+            webAudioTimingRef.current = null;
+            clearProgressTimer();
+            resolve();
+          };
+          source.start(0, safeOffset);
+        });
+        return !isStopped(generation) && !pausedRef.current;
+      } catch {
+        clearProgressTimer();
+        return false;
+      }
+    },
+    [clearProgressTimer, ensureContext, isStopped, startProgressTimer],
+  );
+
   const playNext = useCallback(
     async (generation: number) => {
-      if (isStopped(generation)) {
+      if (isStopped(generation) || pausedRef.current) {
         return;
       }
 
@@ -294,14 +360,19 @@ export function useAudioPlayer() {
       if (!next) {
         playingRef.current = false;
         setIsPlaying(false);
+        currentItemRef.current = null;
         clearProgressTimer();
         flushIdle();
         return;
       }
 
+      currentItemRef.current = next;
       playingRef.current = true;
       setIsPlaying(true);
       const ok = await playItem(next, generation);
+      if (pausedRef.current) {
+        return;
+      }
       if (isStopped(generation) || !playingRef.current) {
         return;
       }
@@ -312,11 +383,15 @@ export function useAudioPlayer() {
           { ...next, url: undefined, data: undefined },
           generation,
         );
+        if (pausedRef.current) {
+          return;
+        }
         if (!isStopped(generation) && playingRef.current) {
           next.onEnd?.();
         }
       }
-      if (isStopped(generation) || !playingRef.current) {
+      currentItemRef.current = null;
+      if (isStopped(generation) || !playingRef.current || pausedRef.current) {
         return;
       }
       void playNext(generation);
@@ -327,7 +402,7 @@ export function useAudioPlayer() {
   const enqueue = useCallback(
     (item: AudioItem) => {
       queueRef.current.push(item);
-      if (!playingRef.current) {
+      if (!playingRef.current && !pausedRef.current) {
         const generation = playGenerationRef.current;
         void (async () => {
           await ensureContext();
@@ -353,11 +428,133 @@ export function useAudioPlayer() {
     await ensureContext();
   }, [ensureContext]);
 
+  const pause = useCallback((): boolean => {
+    if (pausedRef.current) return true;
+
+    const hasActive =
+      playingRef.current ||
+      !!audioRef.current ||
+      !!activeSourceRef.current ||
+      ("speechSynthesis" in window &&
+        (speechSynthesis.speaking || speechSynthesis.pending));
+    if (!hasActive && queueRef.current.length === 0 && !currentItemRef.current) {
+      return false;
+    }
+
+    pausedRef.current = true;
+    playingRef.current = false;
+    setIsPlaying(false);
+    setIsPaused(true);
+    clearProgressTimer();
+
+    const audio = audioRef.current;
+    if (audio && !audio.paused) {
+      pausedElementTimeRef.current = audio.currentTime;
+      audio.pause();
+    }
+
+    if (
+      activeSourceRef.current &&
+      webAudioTimingRef.current &&
+      currentItemRef.current
+    ) {
+      const { ctx, startAt, buffer } = webAudioTimingRef.current;
+      const offset = Math.min(
+        Math.max(ctx.currentTime - startAt, 0),
+        buffer.duration,
+      );
+      pausedWebAudioRef.current = {
+        item: currentItemRef.current,
+        buffer,
+        offset,
+        generation: playGenerationRef.current,
+      };
+      stopActiveSource();
+      webAudioTimingRef.current = null;
+    }
+
+    if ("speechSynthesis" in window && speechSynthesis.speaking) {
+      speechSynthesis.pause();
+    }
+
+    return true;
+  }, [clearProgressTimer, stopActiveSource]);
+
+  const resume = useCallback(async (): Promise<boolean> => {
+    if (!pausedRef.current) return false;
+    pausedRef.current = false;
+    setIsPaused(false);
+    await ensureContext();
+
+    const audio = audioRef.current;
+    if (audio && audio.src) {
+      if (pausedElementTimeRef.current > 0) {
+        audio.currentTime = pausedElementTimeRef.current;
+      }
+      playingRef.current = true;
+      setIsPlaying(true);
+      try {
+        await audio.play();
+        return true;
+      } catch {
+        playingRef.current = false;
+        setIsPlaying(false);
+        pausedRef.current = true;
+        setIsPaused(true);
+        return false;
+      }
+    }
+
+    if (pausedWebAudioRef.current) {
+      const snap = pausedWebAudioRef.current;
+      pausedWebAudioRef.current = null;
+      if (isStopped(snap.generation)) return false;
+      playingRef.current = true;
+      setIsPlaying(true);
+      const ok = await resumeWebAudioFromOffset(
+        snap.item,
+        snap.buffer,
+        snap.offset,
+        snap.generation,
+      );
+      if (pausedRef.current) return true;
+      if (ok) {
+        snap.item.onEnd?.();
+      }
+      if (!pausedRef.current && !isStopped(snap.generation)) {
+        void playNext(snap.generation);
+      }
+      return true;
+    }
+
+    if ("speechSynthesis" in window && speechSynthesis.paused) {
+      speechSynthesis.resume();
+      playingRef.current = true;
+      setIsPlaying(true);
+      return true;
+    }
+
+    if (queueRef.current.length > 0 || currentItemRef.current) {
+      playingRef.current = true;
+      setIsPlaying(true);
+      void playNext(playGenerationRef.current);
+      return true;
+    }
+
+    return false;
+  }, [ensureContext, isStopped, playNext, resumeWebAudioFromOffset]);
+
   const stop = useCallback(() => {
     playGenerationRef.current += 1;
     queueRef.current = [];
     playingRef.current = false;
+    pausedRef.current = false;
+    pausedWebAudioRef.current = null;
+    pausedElementTimeRef.current = 0;
+    currentItemRef.current = null;
+    webAudioTimingRef.current = null;
     setIsPlaying(false);
+    setIsPaused(false);
     clearProgressTimer();
     onIdleRef.current = null;
     stopActiveSource();
@@ -367,5 +564,5 @@ export function useAudioPlayer() {
     }
   }, [clearProgressTimer, stopActiveElement, stopActiveSource]);
 
-  return { enqueue, runAfterIdle, stop, unlock, isPlaying };
+  return { enqueue, runAfterIdle, stop, pause, resume, unlock, isPlaying, isPaused };
 };
