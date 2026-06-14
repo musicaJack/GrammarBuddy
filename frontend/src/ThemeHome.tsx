@@ -1,9 +1,10 @@
 type Props = {
   onSelectGrammar: () => void;
   onSelectNews: () => void;
+  onSelectNewsHistory: () => void;
 };
 
-export function ThemeHome({ onSelectGrammar, onSelectNews }: Props) {
+export function ThemeHome({ onSelectGrammar, onSelectNews, onSelectNewsHistory }: Props) {
   return (
     <div className="theme-home">
       <h1 className="theme-home__title">GrammarBuddy</h1>
@@ -20,6 +21,9 @@ export function ThemeHome({ onSelectGrammar, onSelectNews }: Props) {
           <span className="theme-card__desc">News · 3-turn chat</span>
         </button>
       </div>
+      <button type="button" className="theme-history-link" onClick={onSelectNewsHistory}>
+        📋 查看练习历史
+      </button>
     </div>
   );
 }

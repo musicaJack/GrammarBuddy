@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ClimbingStairsLoader } from "./components/ClimbingStairsLoader";
 import { ConversationTranscript } from "./components/ConversationTranscript";
+import { WrapUpPanel } from "./components/WrapUpPanel";
 import { MicLevelMeter } from "./components/MicLevelMeter";
 import { RoundScreen } from "./components/RoundScreen";
 import { SidePowerButton } from "./components/SideControls";
@@ -270,7 +271,7 @@ function NewsScreenContent({
         <div className="star">🎉</div>
         <p className="screen-title">Well done!</p>
         <p className="screen-sub">You finished {turnCount} turns</p>
-        <p className="tap-hint">See summary on the right →</p>
+        <p className="tap-hint">总结已保存 · 右侧查看 · 首页可查历史</p>
       </>
     );
   }
@@ -796,26 +797,18 @@ export function NewsApp({ onBack }: { onBack: () => void }) {
         </button>
       </div>
       {wrapUp && uiState === "COMPLETE" ? (
-        <div className="wrap-up-panel">
-          {wrapUp.grammar_points?.length ? (
-            <section>
-              <h3>Grammar</h3>
-              <ul>
-                {wrapUp.grammar_points.map((g) => (
-                  <li key={g.issue}>
-                    <strong>{g.issue}</strong>: {g.example} → {g.fix}
-                  </li>
-                ))}
-              </ul>
-            </section>
-          ) : null}
-          {wrapUp.vocabulary?.length ? (
-            <section>
-              <h3>Words</h3>
-              <p>{wrapUp.vocabulary.join(", ")}</p>
-            </section>
-          ) : null}
-        </div>
+        <WrapUpPanel
+          wrapUp={wrapUp}
+          header={
+            article
+              ? {
+                  title: article.title,
+                  subtitle: article.source,
+                  meta: `Turn ${turnCount}/${minTurns}`,
+                }
+              : undefined
+          }
+        />
       ) : null}
     </div>
   );

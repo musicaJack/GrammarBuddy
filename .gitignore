@@ -251,3 +251,6 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+
+# Saved news practice history (local user data)
+backend/data/news_history/*.json

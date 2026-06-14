@@ -7,6 +7,7 @@ from fastapi.responses import Response
 
 from app.config import get_settings
 from app.services.lesson_loader import list_lessons, load_lessons
+from app.services.news_history import list_practice_summaries, load_practice_record
 from app.ws.router import router as ws_router
 
 logging.basicConfig(level=logging.INFO)
@@ -41,6 +42,19 @@ async def health() -> dict:
 @app.get("/api/lessons")
 async def get_lessons() -> dict:
     return {"lessons": [l.model_dump() for l in list_lessons()]}
+
+
+@app.get("/api/news/history")
+async def get_news_history() -> dict:
+    return {"sessions": list_practice_summaries()}
+
+
+@app.get("/api/news/history/{session_id}")
+async def get_news_history_detail(session_id: str) -> dict:
+    record = load_practice_record(session_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Practice record not found")
+    return record
 
 
 _ALLOWED_TTS_HOSTS = (

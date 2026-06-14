@@ -1,4 +1,4 @@
-export type AppTheme = "home" | "grammar" | "news";
+export type AppTheme = "home" | "grammar" | "news" | "newsHistory";
 
 export type NewsUIState =
   | "HOME"
@@ -25,6 +25,28 @@ export interface WrapUpPayload {
   grammar_points?: { issue: string; example: string; fix: string }[];
   vocabulary?: string[];
   overall_feedback?: string;
+}
+
+export interface NewsHistorySummary {
+  id: string;
+  saved_at: string;
+  turn_count: number;
+  min_turns: number;
+  grade: number;
+  article_title: string;
+  article_source: string;
+  topic_summary: string;
+}
+
+export interface NewsHistoryDetail {
+  id: string;
+  saved_at: string;
+  grade: number;
+  turn_count: number;
+  min_turns: number;
+  article: NewsArticle;
+  transcript: TranscriptEntry[];
+  wrap_up: WrapUpPayload;
 }
 
 export interface NewsArticle {

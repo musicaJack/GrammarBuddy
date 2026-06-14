@@ -13,6 +13,7 @@ from app.services.news_chat import (
     generate_wrap_up,
 )
 from app.services.news_fetch import fetch_random_article
+from app.services.news_history import save_practice_record
 from app.services.news_text import split_paragraphs
 from app.services.tts import resolve_for_client, synthesize
 from app.services.tts_segments import build_tts_payload, stream_tts_segments
@@ -306,6 +307,16 @@ async def run_wrap_up_phase(ws: WebSocket, session: SessionState) -> None:
     await send_tts_with_transcript(
         ws, session, spoken, "wrap_up", phase="wrap_up", turn=session.turn_count
     )
+    if session.article:
+        save_practice_record(
+            session_id=session.session_id,
+            grade=session.grade,
+            turn_count=session.turn_count,
+            min_turns=session.min_turns,
+            article=session.article.model_dump(),
+            transcript=list(session.transcript),
+            wrap_up=wrap.model_dump(),
+        )
     session.news_phase = NewsPhase.COMPLETE
     await send_news_ui(ws, session, "COMPLETE")
     await send_news_phase(ws, session)
