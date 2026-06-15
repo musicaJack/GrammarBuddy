@@ -1,0 +1,12 @@
+{
+  "protocol_version": "1.0.0",
+  "backend_version": "0.4.0",
+  "clients": {
+    "web_simulator": { "min": "0.3.0", "recommended": "0.3.1" },
+    "stopwatch": { "min": "0.1.0", "recommended": "0.1.0" }
+  },
+  "notes": {
+    "tts_transport_v1": "JSON data_base64",
+    "tts_transport_v1_1_planned": "optional binary WebSocket frame"
+  }
+}

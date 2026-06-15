@@ -1,6 +1,9 @@
 # GrammarBuddy 本地 MVP 解决方案 v0.3
 
-> 目标：在本机先跑通「网页前端 + Python 后端」的完整学习闭环，验证产品与协议；之后再迁移前端到 M5Stack 圆屏（LVGL）。
+> 目标：在本机先跑通「网页前端 + Python 后端」的完整学习闭环，验证产品与协议；StopWatch 固件作为独立客户端并行开发。
+>
+> **三端总方案（v0.4，推荐阅读）**：[three_client_solution_v0.4.md](./three_client_solution_v0.4.md)  
+> **Launcher 集成**：[launcher_integration_v0.2.md](./launcher_integration_v0.2.md)
 >
 > 关联文档：
 > - [m5stack_ai_core_design_full_v0.1.md](./m5stack_ai_core_design_full_v0.1.md)

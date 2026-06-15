@@ -1,0 +1,16 @@
+{
+  "background": "#0B0F14",
+  "textPrimary": "#FFFFFF",
+  "textSecondary": "#AAB2C0",
+  "correct": "#34C759",
+  "error": "#FF453A",
+  "accent": "#0A84FF",
+  "screenDiameterPx": 466,
+  "safeAreaRadiusRatio": 0.8,
+  "webSimulatorDefaultDiameterPx": 360,
+  "font": {
+    "large": 28,
+    "medium": 20,
+    "small": 14
+  }
+}

@@ -25,6 +25,10 @@ class SessionState:
     attempt: int = 1
     scenario_questions: list[str] = field(default_factory=list)
     total_rounds: int = QUESTIONS_PER_SCENARIO
+    client_type: str = "unknown"
+    client_version: str = ""
+    protocol_version: str = ""
+    device_id: str = ""
     # News theme
     news_phase: NewsPhase = NewsPhase.FETCH
     paused: bool = False

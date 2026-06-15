@@ -1,0 +1,9 @@
+## IDF Component Manager — same managed deps as M5_Stack_FIFAWatch/main + WebSocket
+dependencies:
+  idf:
+    version: '>=5.5.0'
+  espressif/esp_codec_dev: ^1.5.4
+  espressif/i2c_bus: ^1.5.0
+  espressif/esp-dsp: ^1.8.0
+  # Pin below 1.7: 1.7.x needs newer tcp_transport than IDF 5.5 core provides
+  espressif/esp_websocket_client: "~1.5.0"

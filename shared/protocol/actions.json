@@ -1,0 +1,43 @@
+{
+  "protocol_version": "1.0.0",
+  "client_to_server": [
+    {
+      "action": "start_session",
+      "required": ["activity_type"],
+      "optional": [
+        "grade",
+        "lesson_id",
+        "lesson_custom",
+        "client_type",
+        "client_version",
+        "protocol_version",
+        "device_id"
+      ]
+    },
+    { "action": "asr_final", "via": "asr", "optional": ["text", "audio_base64", "audio_format", "confidence"] },
+    { "action": "start_listening" },
+    { "action": "continue_news" },
+    { "action": "pause_session" },
+    { "action": "resume_session" },
+    { "action": "stop_session" },
+    {
+      "action": "switch_lesson",
+      "status": "optional_v1",
+      "optional": ["lesson_id"],
+      "note": "HOME 摇一摇或手动切语法主题"
+    },
+    {
+      "action": "refetch_news",
+      "status": "optional_v1",
+      "note": "HOME 摇一摇换新闻"
+    }
+  ],
+  "server_to_client": [
+    { "action": "session_started", "via": "control" },
+    { "action": "ui_state", "via": "control" },
+    { "action": "phase_complete", "via": "control" },
+    { "type": "gpt" },
+    { "type": "tts" },
+    { "type": "error" }
+  ]
+}

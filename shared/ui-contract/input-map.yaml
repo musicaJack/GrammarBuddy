@@ -1,0 +1,35 @@
+# GrammarBuddy StopWatch 输入映射
+# Web ?device=1 与固件共用
+
+global:
+  primary: BtnA      # Web: Enter / 圆屏点击
+  secondary: BtnB    # Web: Esc
+  go_home: A+B_hold  # 返回 Launcher（系统级，App 不拦截）
+
+grammar:
+  HOME:
+    A: start_listening
+    B: select_news_theme
+  LISTENING:
+    A: submit_recording
+    B: cancel_to_home
+  FEEDBACK:
+    A: next_page
+    B: prev_page
+  PRACTICE:
+    A: submit_recording
+    B: pause_tts
+
+news:
+  HOME:
+    A: start_news_session
+    B: select_grammar_theme
+  BROADCAST:
+    A: pause_resume_tts
+    B: null
+  DIALOGUE:
+    A: submit_recording
+    B: cancel_turn
+  WRAP_UP:
+    A: next_page
+    B: prev_page

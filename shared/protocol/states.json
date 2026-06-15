@@ -1,0 +1,34 @@
+{
+  "protocol_version": "1.0.0",
+  "grammar_ui_states": [
+    "HOME",
+    "ASKING",
+    "LISTENING",
+    "THINKING",
+    "FEEDBACK",
+    "PRACTICE",
+    "PRACTICE_SUCCESS",
+    "SCENARIO_COMPLETE"
+  ],
+  "news_ui_states": [
+    "HOME",
+    "FETCHING",
+    "BROADCAST",
+    "OPEN_QUESTION",
+    "LISTENING",
+    "THINKING",
+    "PAUSED",
+    "WRAP_UP",
+    "COMPLETE"
+  ],
+  "news_phases": [
+    "fetch",
+    "broadcast",
+    "open_question",
+    "dialogue",
+    "wrap_up",
+    "complete"
+  ],
+  "activity_types": ["grammar", "news"],
+  "client_types": ["web_simulator", "stopwatch"]
+}

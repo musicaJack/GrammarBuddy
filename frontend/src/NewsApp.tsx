@@ -8,6 +8,7 @@ import { SidePowerButton } from "./components/SideControls";
 import { useAudioCapture, type MicLevelStatus } from "./hooks/useAudioCapture";
 import { useAudioPlayer } from "./hooks/useAudioPlayer";
 import { useWebSocket } from "./hooks/useWebSocket";
+import { buildClientPayload } from "./utils/clientInfo";
 import type {
   NewsArticle,
   NewsUIState,
@@ -279,7 +280,13 @@ function NewsScreenContent({
   return null;
 }
 
-export function NewsApp({ onBack }: { onBack: () => void }) {
+export function NewsApp({
+  onBack,
+  deviceMode = false,
+}: {
+  onBack: () => void;
+  deviceMode?: boolean;
+}) {
   const [uiState, setUiState] = useState<NewsUIState>("HOME");
   const [phase, setPhase] = useState("fetch");
   const [turnCount, setTurnCount] = useState(0);
@@ -385,6 +392,7 @@ export function NewsApp({ onBack }: { onBack: () => void }) {
         action: "start_session",
         activity_type: "news",
         grade: 3,
+        ...buildClientPayload(),
       },
     });
   }, [unlockAudio]);
@@ -715,19 +723,6 @@ export function NewsApp({ onBack }: { onBack: () => void }) {
       !sessionReady ||
       !!errorMessage);
 
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.code !== "Space" && e.key !== " ") return;
-      const target = e.target as HTMLElement | null;
-      if (target?.closest("button")) return;
-      if (!interactive) return;
-      e.preventDefault();
-      handleTapRef.current();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [interactive]);
-
   const running = sessionReady && uiState !== "HOME";
   const isAiSpeaking = isPlaying;
 
@@ -749,21 +744,51 @@ export function NewsApp({ onBack }: { onBack: () => void }) {
     focusRoundScreen();
   };
 
+  const toggleRef = useRef(handleToggle);
+  toggleRef.current = handleToggle;
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target?.closest("button")) return;
+
+      if (deviceMode && (e.key === "p" || e.key === "P")) {
+        e.preventDefault();
+        toggleRef.current();
+        return;
+      }
+
+      if (e.code !== "Space" && e.key !== " ") return;
+      if (!interactive) return;
+      e.preventDefault();
+      handleTapRef.current();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [deviceMode, interactive]);
+
   const handleBack = () => {
     stopSession();
     onBack();
   };
 
   return (
-    <div className="app-shell app-shell--news">
-      <div className="app-layout app-layout--news">
-        <SidePowerButton
-          running={running}
-          disabled={!connected}
-          onToggle={handleToggle}
-        />
-        <div className="app-stage app-stage--news">
-          <RoundScreen ref={roundScreenRef} onTap={handleTap} interactive={interactive}>
+    <div className={`app-shell app-shell--news${deviceMode ? " app-shell--device" : ""}`}>
+      <div className={`app-layout app-layout--news${deviceMode ? " app-layout--device" : ""}`}>
+        {!deviceMode ? (
+          <SidePowerButton
+            running={running}
+            disabled={!connected}
+            onToggle={handleToggle}
+          />
+        ) : null}
+        <div className={`app-stage app-stage--news${deviceMode ? " app-stage--device" : ""}`}>
+          <RoundScreen
+            ref={roundScreenRef}
+            size={deviceMode ? 466 : 360}
+            onTap={handleTap}
+            interactive={interactive}
+          >
             <NewsScreenContent
               uiState={uiState}
               article={article}
@@ -781,22 +806,26 @@ export function NewsApp({ onBack }: { onBack: () => void }) {
               loadingLabel={loadingLabel}
             />
           </RoundScreen>
-          <ConversationTranscript
-            entries={transcript}
-            speakingId={speakingId}
-            speakingWordIndex={speakingWordIndex}
-            turnCount={turnCount}
-            minTurns={minTurns}
-            phaseLabel={phaseLabel(phase, uiState)}
-            pendingUser={asrPending}
-          />
+          {!deviceMode ? (
+            <ConversationTranscript
+              entries={transcript}
+              speakingId={speakingId}
+              speakingWordIndex={speakingWordIndex}
+              turnCount={turnCount}
+              minTurns={minTurns}
+              phaseLabel={phaseLabel(phase, uiState)}
+              pendingUser={asrPending}
+            />
+          ) : null}
         </div>
-        <button type="button" className="side-btn side-btn--next" onClick={handleBack}>
-          <span className="side-btn__icon">←</span>
-          <span className="side-btn__label">返回</span>
-        </button>
+        {!deviceMode ? (
+          <button type="button" className="side-btn side-btn--next" onClick={handleBack}>
+            <span className="side-btn__icon">←</span>
+            <span className="side-btn__label">返回</span>
+          </button>
+        ) : null}
       </div>
-      {wrapUp && uiState === "COMPLETE" ? (
+      {!deviceMode && wrapUp && uiState === "COMPLETE" ? (
         <WrapUpPanel
           wrapUp={wrapUp}
           header={
@@ -809,6 +838,14 @@ export function NewsApp({ onBack }: { onBack: () => void }) {
               : undefined
           }
         />
+      ) : null}
+      {deviceMode ? (
+        <div className="app-footer-row">
+          <button type="button" className="back-link" onClick={handleBack}>
+            ← 返回主界面
+          </button>
+          <span className="device-key-hint">BtnA/Space 主操作 · P 开/停</span>
+        </div>
       ) : null}
     </div>
   );

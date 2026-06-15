@@ -8,6 +8,7 @@ import { AsrDisplay } from "./components/AsrDisplay";
 import { SideNextButton, SidePowerButton } from "./components/SideControls";
 import { RepeatCuePanel } from "./components/RepeatCuePanel";
 import { useWebSocket } from "./hooks/useWebSocket";
+import { buildClientPayload } from "./utils/clientInfo";
 import type { GrammarPayload, LessonSummary, UIState, WSMessage } from "./types";
 
 const FALLBACK_LESSONS: LessonSummary[] = [
@@ -42,6 +43,7 @@ function ScreenContent({
   micBars,
   micStatus,
   repeatTarget,
+  deviceMode,
 }: {
   uiState: UIState;
   currentQuestion: string;
@@ -56,6 +58,7 @@ function ScreenContent({
   micBars: number[];
   micStatus: MicLevelStatus;
   repeatTarget: string;
+  deviceMode: boolean;
 }) {
   if (errorMessage) {
     return (
@@ -73,7 +76,9 @@ function ScreenContent({
         <div className="progress-ring" />
         <p className="screen-title">Let's Learn!</p>
         <p className="screen-sub">{lessonLabel || "Tap to start"}</p>
-        <p className="tap-hint">或点左侧红色按钮开始</p>
+        <p className="tap-hint">
+          {deviceMode ? "BtnA 开始 · BtnB 换主题" : "或点左侧红色按钮开始"}
+        </p>
       </>
     );
   }
@@ -100,7 +105,7 @@ function ScreenContent({
         <p className="screen-title">{repeating ? "Repeat" : "Your turn"}</p>
         <p className="screen-sub">{repeating ? "Say it aloud" : "Speak now"}</p>
         {repeating ? (
-          repeatTarget.length <= 55 ? (
+          repeatTarget.length <= 55 || deviceMode ? (
             <p className="repeat-inline">{repeatTarget}</p>
           ) : (
             <p className="repeat-inline repeat-inline--hint">请看右侧完整句子 →</p>
@@ -115,8 +120,12 @@ function ScreenContent({
         <MicLevelMeter level={micLevel} bars={micBars} status={micStatus} />
         <p className="asr-preview asr-preview--muted">
           {repeating
-            ? "照着右侧句子读，说完点圆屏或按空格"
-            : "请用英语回答，说完点圆屏结束"}
+            ? deviceMode
+              ? "照着屏幕句子读，BtnA 提交"
+              : "照着右侧句子读，说完点圆屏或按空格"
+            : deviceMode
+              ? "请用英语回答，BtnA 结束"
+              : "请用英语回答，说完点圆屏结束"}
         </p>
         <p className="tap-hint">{listenHint}</p>
       </>
@@ -240,7 +249,13 @@ function dataUrlByteSize(dataUrl: string): number {
 
 const MIN_AUDIO_BYTES = 1500;
 
-export function GrammarApp({ onBack }: { onBack: () => void }) {
+export function GrammarApp({
+  onBack,
+  deviceMode = false,
+}: {
+  onBack: () => void;
+  deviceMode?: boolean;
+}) {
   const [uiState, setUiState] = useState<UIState>("HOME");
   const [currentQuestion, setCurrentQuestion] = useState("");
   const [grammar, setGrammar] = useState<GrammarPayload | null>(null);
@@ -334,6 +349,7 @@ export function GrammarApp({ onBack }: { onBack: () => void }) {
           action: "start_session",
           grade: 3,
           lesson_id: lessonId ?? currentLessonId,
+          ...buildClientPayload(),
         },
       });
     },
@@ -712,26 +728,6 @@ export function GrammarApp({ onBack }: { onBack: () => void }) {
     focusRoundScreen();
   }, [interactive, uiState, focusRoundScreen]);
 
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.code !== "Space" && e.key !== " ") return;
-      const target = e.target as HTMLElement | null;
-      if (
-        target?.tagName === "INPUT" ||
-        target?.tagName === "TEXTAREA" ||
-        target?.isContentEditable
-      ) {
-        return;
-      }
-      if (target?.closest("button")) return;
-      if (!interactiveRef.current) return;
-      e.preventDefault();
-      handleTapRef.current();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
-
   const running = sessionReady && uiState !== "HOME";
 
   const handleToggleSession = () => {
@@ -746,6 +742,42 @@ export function GrammarApp({ onBack }: { onBack: () => void }) {
     focusRoundScreen();
   };
 
+  const toggleSessionRef = useRef(handleToggleSession);
+  toggleSessionRef.current = handleToggleSession;
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (
+        target?.tagName === "INPUT" ||
+        target?.tagName === "TEXTAREA" ||
+        target?.isContentEditable
+      ) {
+        return;
+      }
+      if (target?.closest("button")) return;
+
+      if (deviceMode && (e.key === "b" || e.key === "B")) {
+        e.preventDefault();
+        switchToNextLesson();
+        return;
+      }
+
+      if (deviceMode && (e.key === "p" || e.key === "P")) {
+        e.preventDefault();
+        toggleSessionRef.current();
+        return;
+      }
+
+      if (e.code !== "Space" && e.key !== " ") return;
+      if (!interactiveRef.current) return;
+      e.preventDefault();
+      handleTapRef.current();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [deviceMode, switchToNextLesson]);
+
   const showRepeatCue =
     repeatTarget.length > 0 &&
     (uiState === "PRACTICE" ||
@@ -759,15 +791,22 @@ export function GrammarApp({ onBack }: { onBack: () => void }) {
         : "listening";
 
   return (
-    <div className="app-shell">
-      <div className="app-layout">
-        <SidePowerButton
-          running={running}
-          disabled={!connected}
-          onToggle={handleToggleSession}
-        />
-        <div className="app-stage">
-          <RoundScreen ref={roundScreenRef} onTap={handleTap} interactive={interactive}>
+    <div className={`app-shell${deviceMode ? " app-shell--device" : ""}`}>
+      <div className={`app-layout${deviceMode ? " app-layout--device" : ""}`}>
+        {!deviceMode ? (
+          <SidePowerButton
+            running={running}
+            disabled={!connected}
+            onToggle={handleToggleSession}
+          />
+        ) : null}
+        <div className={`app-stage${deviceMode ? " app-stage--device" : ""}`}>
+          <RoundScreen
+            ref={roundScreenRef}
+            size={deviceMode ? 466 : 360}
+            onTap={handleTap}
+            interactive={interactive}
+          >
             <ScreenContent
               uiState={uiState}
               currentQuestion={currentQuestion}
@@ -782,17 +821,20 @@ export function GrammarApp({ onBack }: { onBack: () => void }) {
               micBars={micBars ?? []}
               micStatus={micStatus ?? "idle"}
               repeatTarget={repeatTarget}
+              deviceMode={deviceMode}
             />
           </RoundScreen>
-          {showRepeatCue ? (
+          {!deviceMode && showRepeatCue ? (
             <RepeatCuePanel sentence={repeatTarget} phase={repeatCuePhase} />
           ) : null}
         </div>
-        <SideNextButton
-          disabled={!connected}
-          nextLessonName={nextLessonName}
-          onNextLesson={switchToNextLesson}
-        />
+        {!deviceMode ? (
+          <SideNextButton
+            disabled={!connected}
+            nextLessonName={nextLessonName}
+            onNextLesson={switchToNextLesson}
+          />
+        ) : null}
       </div>
       <div className="app-footer-row">
         <button type="button" className="back-link" onClick={() => {
@@ -801,7 +843,10 @@ export function GrammarApp({ onBack }: { onBack: () => void }) {
         }}>
           ← 返回主界面
         </button>
-        <AsrDisplay text={recognizedText} pending={asrPending} />
+        {!deviceMode ? <AsrDisplay text={recognizedText} pending={asrPending} /> : null}
+        {deviceMode ? (
+          <span className="device-key-hint">BtnA/Space 主操作 · B 换主题 · P 开/停</span>
+        ) : null}
       </div>
     </div>
   );

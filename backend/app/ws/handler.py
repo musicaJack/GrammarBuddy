@@ -14,6 +14,13 @@ from app.services.tts import fetch_audio_as_base64, synthesize
 from app.session.manager import SessionState, session_manager
 from app.session.questions import QUESTIONS_PER_SCENARIO
 from app.session.state import ActivityType, SessionMode, UIState
+from app.version_info import PROTOCOL_VERSION
+from app.ws.client_info import (
+    apply_client_info,
+    check_protocol_version,
+    log_client_connect,
+    parse_client_info,
+)
 from app.ws.messaging import (
     send_await_continue,
     send_error,
@@ -250,11 +257,16 @@ async def handle_control(ws: WebSocket, payload: dict[str, Any]) -> None:
     if action == "start_session":
         activity_type = str(payload.get("activity_type") or "grammar")
         grade = int(payload.get("grade", 3))
+        client_info = parse_client_info(payload)
+        ok, err = check_protocol_version(client_info.protocol_version)
+        if not ok:
+            await send_error(ws, err)
+            return
 
         if activity_type == ActivityType.NEWS.value:
             from app.ws.news_handler import start_news_session
 
-            await start_news_session(ws, grade)
+            await start_news_session(ws, grade, client_info)
             return
 
         lesson_id = payload.get("lesson_id")
@@ -269,6 +281,8 @@ async def handle_control(ws: WebSocket, payload: dict[str, Any]) -> None:
             return
 
         session = session_manager.create(lesson, grade=grade)
+        apply_client_info(session, client_info)
+        log_client_connect(client_info, session.session_id, ActivityType.GRAMMAR.value)
         await send_message(
             ws,
             WSMessage(
@@ -278,6 +292,8 @@ async def handle_control(ws: WebSocket, payload: dict[str, Any]) -> None:
                     "action": "session_started",
                     "session_id": session.session_id,
                     "activity_type": ActivityType.GRAMMAR.value,
+                    "protocol_version": PROTOCOL_VERSION,
+                    "client_type": session.client_type,
                     "lesson": {
                         "id": lesson.id,
                         "display_name": lesson.display_name,

@@ -1,0 +1,12 @@
+{
+  "enabled_states": ["HOME"],
+  "accel_delta_g": 0.4,
+  "gyro_threshold_dps": 150,
+  "debounce_ms": 800,
+  "cooldown_ms": 1200,
+  "actions": {
+    "HOME_grammar": "switch_lesson",
+    "HOME_news": "refetch_news"
+  },
+  "calibration_note": "儿童手持噪声较大，实机 S4 阶段微调 accel_delta_g / gyro_threshold_dps"
+}

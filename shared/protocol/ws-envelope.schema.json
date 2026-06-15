@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://grammabuddy.local/shared/protocol/ws-envelope.schema.json",
+  "title": "GrammarBuddy WebSocket Envelope",
+  "type": "object",
+  "required": ["type", "payload"],
+  "properties": {
+    "type": {
+      "type": "string",
+      "enum": ["control", "asr", "gpt", "tts", "error"]
+    },
+    "session_id": { "type": "string", "format": "uuid" },
+    "payload": { "type": "object" }
+  },
+  "additionalProperties": false
+}

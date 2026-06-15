@@ -19,6 +19,12 @@ from app.services.tts import resolve_for_client, synthesize
 from app.services.tts_segments import build_tts_payload, stream_tts_segments
 from app.session.manager import SessionState, session_manager
 from app.session.state import ActivityType, NewsPhase
+from app.version_info import PROTOCOL_VERSION
+from app.ws.client_info import (
+    ClientInfo,
+    apply_client_info,
+    log_client_connect,
+)
 from app.ws.messaging import send_error, send_message, send_phase_complete
 
 logger = logging.getLogger(__name__)
@@ -172,8 +178,15 @@ async def send_news_ui(ws: WebSocket, session: SessionState, ui_state: str) -> N
     )
 
 
-async def start_news_session(ws: WebSocket, grade: int) -> None:
+async def start_news_session(
+    ws: WebSocket,
+    grade: int,
+    client_info: ClientInfo | None = None,
+) -> None:
     session = session_manager.create_news(grade=grade)
+    if client_info:
+        apply_client_info(session, client_info)
+        log_client_connect(client_info, session.session_id, ActivityType.NEWS.value)
     await send_message(
         ws,
         WSMessage(
@@ -183,6 +196,8 @@ async def start_news_session(ws: WebSocket, grade: int) -> None:
                 "action": "session_started",
                 "session_id": session.session_id,
                 "activity_type": ActivityType.NEWS.value,
+                "protocol_version": PROTOCOL_VERSION,
+                "client_type": session.client_type,
                 "turn_count": 0,
                 "min_turns": session.min_turns,
             },

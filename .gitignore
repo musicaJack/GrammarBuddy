@@ -254,3 +254,10 @@ pnpm-debug.log*
 
 # Saved news practice history (local user data)
 backend/data/news_history/*.json
+
+# ESP-IDF firmware build
+firmware/build/
+firmware/sdkconfig
+firmware/sdkconfig.old
+firmware/dependencies.lock
+firmware/managed_components/

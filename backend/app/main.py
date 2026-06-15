@@ -8,6 +8,7 @@ from fastapi.responses import Response
 from app.config import get_settings
 from app.services.lesson_loader import list_lessons, load_lessons
 from app.services.news_history import list_practice_summaries, load_practice_record
+from app.version_info import get_version_payload
 from app.ws.router import router as ws_router
 
 logging.basicConfig(level=logging.INFO)
@@ -15,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 settings = get_settings()
 
-app = FastAPI(title="GrammarBuddy API", version="0.1.0")
+app = FastAPI(title="GrammarBuddy API", version="0.4.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -37,6 +38,11 @@ async def startup() -> None:
 @app.get("/health")
 async def health() -> dict:
     return {"status": "ok"}
+
+
+@app.get("/api/version")
+async def api_version() -> dict:
+    return get_version_payload()
 
 
 @app.get("/api/lessons")

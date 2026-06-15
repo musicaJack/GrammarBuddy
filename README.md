@@ -1,6 +1,14 @@
 # GrammarBuddy
 
-面向小学生的实时英语语法学习系统（Web MVP → M5Stack 圆屏）。
+面向小学生的实时英语语法学习系统（Web 模拟器 + StopWatch 固件 + Python 后端）。
+
+```text
+GrammarBuddy/
+├── backend/     # FastAPI + WebSocket
+├── frontend/    # PC 圆屏模拟器
+├── firmware/    # StopWatch ESP-IDF（引用 M5_Stack_FIFAWatch 平台）
+└── shared/      # 三端契约
+```
 
 ## 本地启动
 
@@ -27,6 +35,10 @@ npm run dev
 
 浏览器打开 http://localhost:5173
 
+**StopWatch 设备预览模式**：http://localhost:5173/?device=1（隐藏侧栏，466 圆屏，A/B 键盘映射）
+
+API 版本：http://localhost:8000/api/version
+
 ### 3. 快速测试（无需麦克风）
 
 1. 右侧 Debug 面板点击「新建 Session」
@@ -41,4 +53,8 @@ npm run dev
 - **前端**：React + Vite + TypeScript
 - **后端**：FastAPI + WebSocket
 
-详见 [docs/local_mvp_solution_v0.1.md](docs/local_mvp_solution_v0.1.md)
+文档：
+
+- [三端解决方案 v0.4](docs/three_client_solution_v0.4.md) — PC 模拟器 + StopWatch + 后端
+- [Launcher 集成说明](docs/launcher_integration_v0.2.md) — `M5_Stack_FIFAWatch`
+- [本地 MVP 方案](docs/local_mvp_solution_v0.1.md)
