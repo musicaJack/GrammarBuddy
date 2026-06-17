@@ -1,8 +1,10 @@
 services:
   api:
     build: ./backend
+    image: grammarbuddy-api:latest
     container_name: grammarbuddy-api
     restart: unless-stopped
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
     env_file:
       - ./backend/.env
     volumes:
@@ -14,6 +16,7 @@ services:
     build:
       context: .
       dockerfile: frontend/Dockerfile
+    image: grammarbuddy-web:latest
     container_name: grammarbuddy-web
     restart: unless-stopped
     depends_on:
