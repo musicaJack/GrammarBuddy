@@ -7,7 +7,7 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$REPO_ROOT"
 
 SHARED_NETWORK="${GRAMMARBUDDY_SHARED_NETWORK:-beingdigital-shared}"
-PUBLIC_HEALTH_URL="${GRAMMARBUDDY_HEALTH_URL:-https://www.beingdigital.cn/GrammerBuddy/health}"
+PUBLIC_HEALTH_URL="${GRAMMARBUDDY_HEALTH_URL:-https://www.beingdigital.cn/GrammarBuddy/health}"
 SKIP_BUILD="${SKIP_BUILD:-0}"
 
 echo "=== GrammarBuddy deploy ==="
@@ -62,7 +62,7 @@ echo "=== Container status ==="
 echo "=== Internal health (grammarbuddy-web) ==="
 INTERNAL_OK=0
 for _ in 1 2 3 4 5; do
-  if docker exec grammarbuddy-web wget -qO- http://127.0.0.1/GrammerBuddy/health 2>/dev/null | grep -q '"status"'; then
+  if docker exec grammarbuddy-web wget -qO- http://127.0.0.1/GrammarBuddy/health 2>/dev/null | grep -q '"status"'; then
     INTERNAL_OK=1
     break
   fi
@@ -70,7 +70,7 @@ for _ in 1 2 3 4 5; do
 done
 
 if [[ "$INTERNAL_OK" == "1" ]]; then
-  echo "OK  /GrammerBuddy/health inside web container"
+  echo "OK  /GrammarBuddy/health inside web container"
 else
   echo "WARN  internal health check failed"
   "${DC[@]}" logs --tail=30 api web || true

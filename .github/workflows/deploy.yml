@@ -70,12 +70,12 @@ jobs:
             set -e
             BASE="${{ secrets.GRAMMARBUDDY_BASE_URL }}"
             if [ -z "$BASE" ]; then
-              BASE="https://www.beingdigital.cn/GrammerBuddy"
+              BASE="https://www.beingdigital.cn/GrammarBuddy"
             fi
             code=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/health" || echo "000")
             echo "Health HTTP: $code"
             if [ "$code" != "200" ]; then
-              echo "WARN: public health not 200 (mySite nginx may need /GrammerBuddy/ snippet)"
+              echo "WARN: public health not 200 (mySite nginx may need /GrammarBuddy/ snippet)"
               exit 0
             fi
           '

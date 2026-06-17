@@ -71,7 +71,7 @@ API 版本：http://localhost:8000/api/version
 
 文档：
 
-- [生产部署（子路径 /GrammerBuddy/）](docs/deploy-production.md) — 含 `deploy/*.sh` 与 GitHub Actions
+- [生产部署（子路径 /GrammarBuddy/）](docs/deploy-production.md) — 含 `deploy/*.sh` 与 GitHub Actions
 - [三端解决方案 v0.4](docs/three_client_solution_v0.4.md) — PC 模拟器 + StopWatch + 后端
 - [Launcher 集成说明](docs/launcher_integration_v0.2.md) — `M5_Stack_FIFAWatch`
 - [本地 MVP 方案](docs/local_mvp_solution_v0.1.md)

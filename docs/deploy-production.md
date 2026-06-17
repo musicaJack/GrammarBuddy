@@ -1,7 +1,7 @@
 # GrammarBuddy 生产部署计划与手册
 
 > 目标：将 **backend** + **PC 前端** 部署到与 [mySite](https://github.com/musicajack/mysite) 相同的生产机，通过 **子路径** 访问：  
-> **`https://www.beingdigital.cn/GrammerBuddy/`**（URL 拼写为 GrammerBuddy，双 m）  
+> **`https://www.beingdigital.cn/GrammarBuddy/`**  
 > **不含** StopWatch 固件（固件仍在本机编译烧录；生产只提供 API/WebSocket 服务）。
 
 ---
@@ -10,11 +10,11 @@
 
 | 用途 | URL |
 |------|-----|
-| PC 浏览器 | `https://www.beingdigital.cn/GrammerBuddy/` |
-| 手机圆屏模式 | `https://www.beingdigital.cn/GrammerBuddy/?device=1` |
-| API | `https://www.beingdigital.cn/GrammerBuddy/api/...` |
-| WebSocket | `wss://www.beingdigital.cn/GrammerBuddy/ws/session` |
-| 健康检查 | `https://www.beingdigital.cn/GrammerBuddy/health` |
+| PC 浏览器 | `https://www.beingdigital.cn/GrammarBuddy/` |
+| 手机圆屏模式 | `https://www.beingdigital.cn/GrammarBuddy/?device=1` |
+| API | `https://www.beingdigital.cn/GrammarBuddy/api/...` |
+| WebSocket | `wss://www.beingdigital.cn/GrammarBuddy/ws/session` |
+| 健康检查 | `https://www.beingdigital.cn/GrammarBuddy/health` |
 
 **麦克风**：浏览器要求 **HTTPS + 受信任证书**。  
 生产复用 mySite 已有 `beingdigital.cn` 证书（`ngx/conf.d/cert/`），**无需单独申请证书**。  
@@ -29,7 +29,7 @@ Internet (443, www.beingdigital.cn)
               │
     ┌─────────▼──────────┐
     │ beingdigital-website│  mySite Nginx，终结 TLS
-    │ location /GrammerBuddy/ → proxy
+    │ location /GrammarBuddy/ → proxy
     └─────────┬──────────┘
               │ Docker network: beingdigital-shared
     ┌─────────▼──────────┐
@@ -41,9 +41,9 @@ Internet (443, www.beingdigital.cn)
     └────────────────────┘
 ```
 
-- 前端 Vite `base: /GrammerBuddy/`（见 `frontend/.env.production`）
+- 前端 Vite `base: /GrammarBuddy/`（见 `frontend/.env.production`）
 - 前端 API/WS 通过 `withBase()` / `wsSessionUrl()` 自动带前缀
-- mySite 只需 **一条** `location /GrammerBuddy/` 反代到 `grammarbuddy-web`
+- mySite 只需 **一条** `location /GrammarBuddy/` 反代到 `grammarbuddy-web`
 
 ---
 
@@ -52,11 +52,11 @@ Internet (443, www.beingdigital.cn)
 ```text
 GrammarBuddy/
 ├── backend/Dockerfile
-├── frontend/Dockerfile          # npm build → /GrammerBuddy/ 静态
+├── frontend/Dockerfile          # npm build → /GrammarBuddy/ 静态
 ├── deploy/nginx.conf            # web 容器内路由
 ├── deploy/mysite-nginx-snippet.conf
 ├── docker-compose.yml
-└── frontend/.env.production     # VITE_BASE_PATH=/GrammerBuddy/
+└── frontend/.env.production     # VITE_BASE_PATH=/GrammarBuddy/
 ```
 
 ---
@@ -104,7 +104,7 @@ bash deploy/deploy.sh
 | `SERVER_USER` | `lighthouse` |
 | `DEPLOY_PATH` | `/home/lighthouse/GrammarBuddy` |
 | `SSH_PASSPHRASE` | 可选 |
-| `GRAMMARBUDDY_BASE_URL` | 可选，默认 `https://www.beingdigital.cn/GrammerBuddy` |
+| `GRAMMARBUDDY_BASE_URL` | 可选，默认 `https://www.beingdigital.cn/GrammarBuddy` |
 
 ---
 
@@ -156,24 +156,24 @@ GrammarBuddy **不映射公网端口**；`grammarbuddy-web` 仅通过 `beingdigi
 
 ### 5.4 集成 mySite Nginx（必做）
 
-GrammarBuddy 容器**不会**直接暴露 443；必须在 mySite 里加反代，否则 `/GrammerBuddy/` 会被主站 `location /` 或静态资源规则误处理。
+GrammarBuddy 容器**不会**直接暴露 443；必须在 mySite 里加反代，否则 `/GrammarBuddy/` 会被主站 `location /` 或静态资源规则误处理。
 
 **两步：**
 
 1. 复制 `deploy/mysite-nginx-map.conf` → mySite 的 `ngx/conf.d/00-websocket-map.conf`（WebSocket 需要 `$connection_upgrade`）
 
-2. 在 `ngx/conf.d/default.conf` 的 HTTPS `server { }` 内、**正则静态 location 之前**加入 `deploy/mysite-nginx-snippet.conf` 的内容（注意 `^~` 前缀，避免 `/GrammerBuddy/assets/*.js` 被主站静态规则截走）
+2. 在 `ngx/conf.d/default.conf` 的 HTTPS `server { }` 内、**正则静态 location 之前**加入 `deploy/mysite-nginx-snippet.conf` 的内容（注意 `^~` 前缀，避免 `/GrammarBuddy/assets/*.js` 被主站静态规则截走）
 
 mySite `docker-compose.yml` **不用改**（已有 `beingdigital-shared` 网络）。重新 build/push mySite 镜像或部署后生效。
 
 **不需要**改 mySite 的 SSL 证书（继续用现有 `beingdigital.cn` 证书即可）。
 
 ```nginx
-location = /GrammerBuddy {
-    return 301 /GrammerBuddy/;
+location = /GrammarBuddy {
+    return 301 /GrammarBuddy/;
 }
 
-location ^~ /GrammerBuddy/ {
+location ^~ /GrammarBuddy/ {
     resolver 127.0.0.11 valid=10s;
     set $grammarbuddy_web "grammarbuddy-web:80";
     proxy_pass http://$grammarbuddy_web;
@@ -206,12 +206,12 @@ bash deploy/verify.sh
 
 | 检查项 | 命令 / 方式 | 期望 |
 |--------|-------------|------|
-| 健康 | `curl -s https://www.beingdigital.cn/GrammerBuddy/health` | `{"status":"ok"}` |
-| 版本 | `curl -s https://www.beingdigital.cn/GrammerBuddy/api/version` | JSON |
-| 课时 | `curl -s https://www.beingdigital.cn/GrammerBuddy/api/lessons` | `lessons` 数组 |
-| 前端 | 浏览器打开 `/GrammerBuddy/` | 主题首页 |
-| WebSocket | DevTools → Network → WS | `/GrammerBuddy/ws/session` 101 |
-| 手机麦克风 | `/GrammerBuddy/?device=1` | 点击 Start 后可录音 |
+| 健康 | `curl -s https://www.beingdigital.cn/GrammarBuddy/health` | `{"status":"ok"}` |
+| 版本 | `curl -s https://www.beingdigital.cn/GrammarBuddy/api/version` | JSON |
+| 课时 | `curl -s https://www.beingdigital.cn/GrammarBuddy/api/lessons` | `lessons` 数组 |
+| 前端 | 浏览器打开 `/GrammarBuddy/` | 主题首页 |
+| WebSocket | DevTools → Network → WS | `/GrammarBuddy/ws/session` 101 |
+| 手机麦克风 | `/GrammarBuddy/?device=1` | 点击 Start 后可录音 |
 
 ---
 
@@ -220,7 +220,7 @@ bash deploy/verify.sh
 固件配网 `ws_url` 改为：
 
 ```text
-wss://www.beingdigital.cn/GrammerBuddy/ws/session
+wss://www.beingdigital.cn/GrammarBuddy/ws/session
 ```
 
 ---
@@ -238,7 +238,7 @@ wss://www.beingdigital.cn/GrammerBuddy/ws/session
 | mySite | GrammarBuddy |
 |--------|----------------|
 | 纯静态单容器 | API + Web 双容器 |
-| 根路径 `/` | 子路径 `/GrammerBuddy/` |
+| 根路径 `/` | 子路径 `/GrammarBuddy/` |
 | 无 WebSocket | 需 WS 升级与长超时 |
 | 无后端密钥 | 必须 `backend/.env` |
 

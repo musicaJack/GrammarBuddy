@@ -2,7 +2,7 @@
 # Smoke tests after deploy (run on server or any machine with curl).
 set -euo pipefail
 
-BASE_URL="${GRAMMARBUDDY_BASE_URL:-https://www.beingdigital.cn/GrammerBuddy}"
+BASE_URL="${GRAMMARBUDDY_BASE_URL:-https://www.beingdigital.cn/GrammarBuddy}"
 
 check() {
   local name="$1"

@@ -59,4 +59,4 @@ bash deploy/deploy.sh
 
 echo ""
 echo "Next: add mySite nginx snippet (deploy/mysite-nginx-snippet.conf) and redeploy mySite."
-echo "Then open: https://www.beingdigital.cn/GrammerBuddy/?device=1"
+echo "Then open: https://www.beingdigital.cn/GrammarBuddy/?device=1"
