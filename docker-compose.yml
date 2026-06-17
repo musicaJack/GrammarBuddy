@@ -1,6 +1,10 @@
 services:
   api:
-    build: ./backend
+    build:
+      context: ./backend
+      args:
+        APT_MIRROR: ${DOCKER_APT_MIRROR:-mirrors.aliyun.com}
+        PIP_INDEX_URL: ${DOCKER_PIP_INDEX_URL:-https://pypi.tuna.tsinghua.edu.cn/simple}
     image: grammarbuddy-api:latest
     container_name: grammarbuddy-api
     restart: unless-stopped
@@ -16,6 +20,8 @@ services:
     build:
       context: .
       dockerfile: frontend/Dockerfile
+      args:
+        NPM_REGISTRY: ${DOCKER_NPM_REGISTRY:-https://registry.npmmirror.com}
     image: grammarbuddy-web:latest
     container_name: grammarbuddy-web
     restart: unless-stopped

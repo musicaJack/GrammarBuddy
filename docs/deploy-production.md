@@ -152,6 +152,33 @@ docker compose up -d
 docker compose ps
 ```
 
+### 5.3.1 国内服务器加速构建（推荐）
+
+构建慢通常有三处：**拉 Docker 基础镜像**、**apt**、**pip/npm**。仓库已默认配置国内源：
+
+| 环节 | 默认镜像 |
+|------|----------|
+| apt（Debian） | `mirrors.aliyun.com` |
+| pip | `https://pypi.tuna.tsinghua.edu.cn/simple` |
+| npm | `https://registry.npmmirror.com` |
+
+**一次性配置 Docker Hub 加速**（拉 `python:3.11-slim`、`node:20-alpine` 更快）：
+
+```bash
+sudo bash deploy/setup-docker-mirror.sh
+```
+
+可选自定义：复制 `deploy/.env.build.example` → `deploy/.env.build` 后修改，`deploy.sh` 会自动加载。
+
+海外构建若不想用国内源，可：
+
+```bash
+export DOCKER_APT_MIRROR=deb.debian.org
+export DOCKER_PIP_INDEX_URL=https://pypi.org/simple
+export DOCKER_NPM_REGISTRY=https://registry.npmjs.org
+docker-compose build
+```
+
 GrammarBuddy **不映射公网端口**；`grammarbuddy-web` 仅通过 `beingdigital-shared` 网络被 mySite Nginx 访问。
 
 ### 5.4 集成 mySite Nginx（必做）

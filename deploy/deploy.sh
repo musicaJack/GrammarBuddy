@@ -47,6 +47,13 @@ if [[ "$SKIP_BUILD" == "1" ]]; then
   echo "SKIP_BUILD=1 — skipping image build"
 else
   echo "=== Building images ==="
+  if [[ -f deploy/.env.build ]]; then
+    echo "Loading deploy/.env.build"
+    set -a
+    # shellcheck disable=SC1091
+    source deploy/.env.build
+    set +a
+  fi
   "${DC[@]}" build
 fi
 
