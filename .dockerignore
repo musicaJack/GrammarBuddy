@@ -1,0 +1,14 @@
+# Web image build context (repo root); api uses backend/ separately.
+.git
+.github
+docs
+firmware
+backend
+shared
+.cursor
+**/__pycache__
+**/.venv
+**/.pytest_cache
+frontend/node_modules
+frontend/dist
+*.md

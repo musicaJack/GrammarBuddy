@@ -12,8 +12,8 @@ services:
 
   web:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: frontend/Dockerfile
     container_name: grammarbuddy-web
     restart: unless-stopped
     depends_on:
