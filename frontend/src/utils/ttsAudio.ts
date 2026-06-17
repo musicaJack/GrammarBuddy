@@ -1,12 +1,15 @@
 /** Resolve DashScope OSS URLs through our backend proxy (avoids browser CORS). */
+import { withBase } from "./basePath";
+
 export function resolveTtsAudioUrl(raw: string): string {
-  if (!raw || raw.startsWith("/api/tts/proxy")) {
-    return raw;
+  const proxyPrefix = withBase("/api/tts/proxy");
+  if (!raw || raw.startsWith(proxyPrefix) || raw.startsWith("/api/tts/proxy")) {
+    return raw.startsWith("/api/tts/proxy") ? withBase(raw) : raw;
   }
   try {
     const host = new URL(raw).hostname;
     if (host.includes("dashscope-result")) {
-      return `/api/tts/proxy?url=${encodeURIComponent(raw)}`;
+      return `${proxyPrefix}?url=${encodeURIComponent(raw)}`;
     }
   } catch {
     /* not a URL */

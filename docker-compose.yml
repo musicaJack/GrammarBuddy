@@ -1,0 +1,29 @@
+services:
+  api:
+    build: ./backend
+    container_name: grammarbuddy-api
+    restart: unless-stopped
+    env_file:
+      - ./backend/.env
+    volumes:
+      - ./backend/data/news_history:/app/data/news_history
+    networks:
+      - grammarbuddy-net
+
+  web:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: grammarbuddy-web
+    restart: unless-stopped
+    depends_on:
+      - api
+    networks:
+      - grammarbuddy-net
+      - beingdigital-shared
+
+networks:
+  grammarbuddy-net:
+    driver: bridge
+  beingdigital-shared:
+    external: true

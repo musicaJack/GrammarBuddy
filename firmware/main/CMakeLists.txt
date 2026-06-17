@@ -90,6 +90,7 @@ idf_component_register(
         esp_http_client
         json
         espressif__esp_websocket_client
+        grammarbuddy_config
     EMBED_FILES
         "${FIFAWATCH_MAIN}/assets/sfx/boot_sfx.bin"
     EMBED_TXTFILES

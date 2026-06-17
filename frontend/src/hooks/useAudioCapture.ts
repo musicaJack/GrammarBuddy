@@ -1,10 +1,22 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-export type MicLevelStatus = "idle" | "active" | "silent" | "denied";
+export type MicLevelStatus =
+  | "idle"
+  | "pending"
+  | "active"
+  | "silent"
+  | "denied";
 
 const BAR_COUNT = 9;
 const SIGNAL_THRESHOLD = 10;
 const SILENT_FRAMES = 120;
+
+type UseAudioCaptureOptions = {
+  /** True while LISTENING — runs recorder and level meter. */
+  listening: boolean;
+  /** True while a session is open — keeps the mic stream alive between turns. */
+  sessionActive: boolean;
+};
 
 function peakOf(values: number[]): number {
   if (values.length === 0) return 0;
@@ -33,36 +45,118 @@ function blobToDataUrl(blob: Blob): Promise<string> {
   });
 }
 
-export function useAudioCapture(active: boolean) {
+export function micAccessHint(): string {
+  if (typeof window !== "undefined" && !window.isSecureContext) {
+    return "请使用 https:// 地址访问以启用麦克风";
+  }
+  return "请允许浏览器使用麦克风（可在浏览器设置中开启）";
+}
+
+export function useAudioCapture({
+  listening,
+  sessionActive,
+}: UseAudioCaptureOptions) {
   const [level, setLevel] = useState(0);
   const [bars, setBars] = useState<number[]>(() =>
     Array.from({ length: BAR_COUNT }, () => 8),
   );
   const [status, setStatus] = useState<MicLevelStatus>("idle");
   const [recording, setRecording] = useState(false);
+  const [micReady, setMicReady] = useState(false);
 
   const streamRef = useRef<MediaStream | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const mimeTypeRef = useRef("audio/webm");
-  const activeRef = useRef(active);
-  activeRef.current = active;
+  const listeningRef = useRef(listening);
+  listeningRef.current = listening;
+
+  const stopRecorder = useCallback(() => {
+    const recorder = recorderRef.current;
+    if (recorder && recorder.state !== "inactive") {
+      recorder.stop();
+    }
+    recorderRef.current = null;
+    chunksRef.current = [];
+    setRecording(false);
+  }, []);
 
   const startRecorder = useCallback((stream: MediaStream) => {
+    stopRecorder();
     const mimeType = pickMimeType();
     mimeTypeRef.current = mimeType || "audio/webm";
-    const recorder = mimeType
-      ? new MediaRecorder(stream, { mimeType })
-      : new MediaRecorder(stream);
-    chunksRef.current = [];
-    recorder.ondataavailable = (ev) => {
-      if (ev.data.size > 0) chunksRef.current.push(ev.data);
-    };
-    recorder.start(250);
-    recorderRef.current = recorder;
-    setRecording(true);
-    return recorder;
-  }, []);
+    try {
+      const recorder = mimeType
+        ? new MediaRecorder(stream, { mimeType })
+        : new MediaRecorder(stream);
+      chunksRef.current = [];
+      recorder.ondataavailable = (ev) => {
+        if (ev.data.size > 0) chunksRef.current.push(ev.data);
+      };
+      recorder.start(250);
+      recorderRef.current = recorder;
+      setRecording(true);
+      return recorder;
+    } catch {
+      setStatus("denied");
+      setRecording(false);
+      return null;
+    }
+  }, [stopRecorder]);
+
+  const releaseMic = useCallback(() => {
+    stopRecorder();
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+    setMicReady(false);
+    setLevel(0);
+    setBars(Array.from({ length: BAR_COUNT }, () => 8));
+    setStatus("idle");
+  }, [stopRecorder]);
+
+  const acquireMic = useCallback(async (): Promise<boolean> => {
+    if (streamRef.current) {
+      setMicReady(true);
+      if (listeningRef.current) {
+        startRecorder(streamRef.current);
+      }
+      setStatus("active");
+      return true;
+    }
+
+    if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+      setStatus("denied");
+      setMicReady(false);
+      return false;
+    }
+
+    if (!window.isSecureContext) {
+      setStatus("denied");
+      setMicReady(false);
+      return false;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+        },
+      });
+      streamRef.current = stream;
+      setMicReady(true);
+      if (listeningRef.current) {
+        const recorder = startRecorder(stream);
+        if (!recorder) return false;
+      }
+      setStatus("active");
+      return true;
+    } catch {
+      setStatus("denied");
+      setMicReady(false);
+      return false;
+    }
+  }, [startRecorder]);
 
   const finishRecording = useCallback(
     async (options?: { resume?: boolean }): Promise<string | null> => {
@@ -87,7 +181,7 @@ export function useAudioCapture(active: boolean) {
             }
           }
 
-          if (resume && activeRef.current && streamRef.current) {
+          if (resume && listeningRef.current && streamRef.current) {
             startRecorder(streamRef.current);
           } else {
             setRecording(false);
@@ -102,24 +196,32 @@ export function useAudioCapture(active: boolean) {
   );
 
   const resumeRecording = useCallback(() => {
-    if (activeRef.current && streamRef.current) {
+    if (listeningRef.current && streamRef.current) {
       startRecorder(streamRef.current);
     }
   }, [startRecorder]);
 
   useEffect(() => {
-    if (!active) {
-      recorderRef.current?.stop();
-      streamRef.current?.getTracks().forEach((t) => t.stop());
-      streamRef.current = null;
-      recorderRef.current = null;
-      chunksRef.current = [];
-      setRecording(false);
+    if (!sessionActive) {
+      releaseMic();
+    }
+  }, [sessionActive, releaseMic]);
+
+  useEffect(() => {
+    if (!listening || !micReady || !streamRef.current) {
+      stopRecorder();
+      if (sessionActive && !micReady) {
+        setStatus("pending");
+      } else if (!sessionActive) {
+        setStatus("idle");
+      }
       setLevel(0);
       setBars(Array.from({ length: BAR_COUNT }, () => 8));
-      setStatus("idle");
       return;
     }
+
+    const stream = streamRef.current;
+    startRecorder(stream);
 
     let cancelled = false;
     let raf = 0;
@@ -128,24 +230,11 @@ export function useAudioCapture(active: boolean) {
 
     (async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-          },
-        });
-        if (cancelled) {
-          stream.getTracks().forEach((t) => t.stop());
-          return;
-        }
-
-        streamRef.current = stream;
-        startRecorder(stream);
-
         ctx = new AudioContext();
         if (ctx.state === "suspended") {
           await ctx.resume();
         }
+        if (cancelled) return;
 
         const source = ctx.createMediaStreamSource(stream);
         const analyser = ctx.createAnalyser();
@@ -167,7 +256,10 @@ export function useAudioCapture(active: boolean) {
             const v = (time[i] - 128) / 128;
             sumSq += v * v;
           }
-          const rmsLevel = Math.min(100, Math.round(Math.sqrt(sumSq / time.length) * 400));
+          const rmsLevel = Math.min(
+            100,
+            Math.round(Math.sqrt(sumSq / time.length) * 400),
+          );
 
           const usable = freq.slice(0, Math.floor(freq.length * 0.6));
           const chunk = Math.max(1, Math.floor(usable.length / BAR_COUNT));
@@ -177,7 +269,10 @@ export function useAudioCapture(active: boolean) {
             for (let j = start; j < start + chunk && j < usable.length; j++) {
               s += usable[j];
             }
-            return Math.max(8, Math.min(100, Math.round((s / chunk / 255) * 100)));
+            return Math.max(
+              8,
+              Math.min(100, Math.round((s / chunk / 255) * 100)),
+            );
           });
           setBars(nextBars);
 
@@ -200,7 +295,6 @@ export function useAudioCapture(active: boolean) {
         if (!cancelled) {
           setStatus("denied");
           setLevel(0);
-          setRecording(false);
         }
       }
     })();
@@ -208,14 +302,20 @@ export function useAudioCapture(active: boolean) {
     return () => {
       cancelled = true;
       cancelAnimationFrame(raf);
-      activeRef.current = false;
-      recorderRef.current?.stop();
-      streamRef.current?.getTracks().forEach((t) => t.stop());
-      streamRef.current = null;
-      recorderRef.current = null;
+      stopRecorder();
       void ctx?.close();
     };
-  }, [active]);
+  }, [listening, micReady, sessionActive, startRecorder, stopRecorder]);
 
-  return { level, bars, status, recording, finishRecording, resumeRecording };
+  return {
+    level,
+    bars,
+    status,
+    recording,
+    micReady,
+    acquireMic,
+    releaseMic,
+    finishRecording,
+    resumeRecording,
+  };
 }

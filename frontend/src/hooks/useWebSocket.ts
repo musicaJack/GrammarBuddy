@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { WSMessage } from "../types";
 
+import { wsSessionUrl } from "../utils/basePath";
+
 function wsUrl(): string {
-  const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
-  return `${proto}//${window.location.host}/ws/session`;
+  return wsSessionUrl();
 }
 
 export function useWebSocket(onMessage: (msg: WSMessage) => void) {

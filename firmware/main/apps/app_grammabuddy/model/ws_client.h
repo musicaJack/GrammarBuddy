@@ -45,6 +45,7 @@ private:
     WsMessageCallback _on_message;
     WsConnectionState _state = WsConnectionState::Idle;
     std::string _last_error;
+    std::string _rx_buffer;
     void* _client             = nullptr;
     bool _connected           = false;
 };

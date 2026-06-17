@@ -35,9 +35,15 @@ void WsClient::on_transport_event(int32_t event_id, void* event_data)
             mclog::tagError(_tag, "error");
             break;
         case WEBSOCKET_EVENT_DATA:
-            if (data != nullptr && data->op_code == WS_TRANSPORT_OPCODES_TEXT && data->data_len > 0 &&
-                _on_message) {
-                _on_message(std::string(data->data_ptr, data->data_len));
+            if (data != nullptr && data->op_code == WS_TRANSPORT_OPCODES_TEXT && data->data_len > 0) {
+                if (data->payload_offset == 0) {
+                    _rx_buffer.clear();
+                }
+                _rx_buffer.append(data->data_ptr, static_cast<size_t>(data->data_len));
+                if (data->payload_offset + data->data_len >= data->payload_len && _on_message) {
+                    _on_message(_rx_buffer);
+                    _rx_buffer.clear();
+                }
             }
             break;
         default:

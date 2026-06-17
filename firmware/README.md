@@ -88,8 +88,9 @@ firmware/
 
 ## 后端地址
 
-- `ws_url` — 默认 `ws://192.168.1.100:8000/ws/session`
-- 在 App 内「设置 → 服务器」修改（见 `app_grammabuddy` 规划）
+- WiFi 配网页面（主 Tab）可设置 **后端服务器地址** 与 **端口**，保存为 `ws://<host>:<port>/ws/session`
+- NVS 命名空间 `grammabuddy`：`server_host`、`server_port`、`ws_url`
+- 默认 `192.168.1.100:8000`（可在 menuconfig → GrammarBuddy 修改）
 
 ## 文档
 

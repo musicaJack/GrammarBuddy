@@ -1,27 +1,29 @@
 # GrammarBuddy Backend
 
-Python FastAPI 服务，对接阿里云百炼（国内北京）千问 API。
+Python FastAPI service that integrates with Alibaba Cloud DashScope (Qwen API, Beijing region).
 
-## 配置
+## Configuration
 
 ```powershell
 cd backend
 copy .env.example .env
-# 编辑 .env，填入 DASHSCOPE_API_KEY
+# Edit .env and set DASHSCOPE_API_KEY
 ```
 
-## 启动
+## Run
 
 ```powershell
 cd backend
 py -3 -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-## 接口
+Use `--host 0.0.0.0` so the StopWatch and other devices on your LAN can reach the server (not only `127.0.0.1`).
 
-- `GET /health` — 健康检查
-- `GET /api/lessons` — 语法主题列表
-- `WS /ws/session` — 会话 WebSocket
+## Endpoints
+
+- `GET /health` — Health check
+- `GET /api/lessons` — Grammar lesson list
+- `WS /ws/session` — Session WebSocket

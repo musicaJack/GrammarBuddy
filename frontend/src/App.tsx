@@ -19,19 +19,13 @@ export default function App() {
 
   if (theme === "grammar") {
     return (
-      <>
-        <DeviceModeBadge deviceMode={deviceMode} />
-        <GrammarApp deviceMode={deviceMode} onBack={() => setTheme("home")} />
-      </>
+      <GrammarApp deviceMode={deviceMode} onBack={() => setTheme("home")} />
     );
   }
 
   if (theme === "news") {
     return (
-      <>
-        <DeviceModeBadge deviceMode={deviceMode} />
-        <NewsApp deviceMode={deviceMode} onBack={() => setTheme("home")} />
-      </>
+      <NewsApp deviceMode={deviceMode} onBack={() => setTheme("home")} />
     );
   }
 

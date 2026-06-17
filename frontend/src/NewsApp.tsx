@@ -5,7 +5,7 @@ import { WrapUpPanel } from "./components/WrapUpPanel";
 import { MicLevelMeter } from "./components/MicLevelMeter";
 import { RoundScreen } from "./components/RoundScreen";
 import { SidePowerButton } from "./components/SideControls";
-import { useAudioCapture, type MicLevelStatus } from "./hooks/useAudioCapture";
+import { useAudioCapture, micAccessHint, type MicLevelStatus } from "./hooks/useAudioCapture";
 import { useAudioPlayer } from "./hooks/useAudioPlayer";
 import { useWebSocket } from "./hooks/useWebSocket";
 import { buildClientPayload } from "./utils/clientInfo";
@@ -323,11 +323,22 @@ export function NewsApp({
     level: micLevel,
     bars: micBars,
     status: micStatus,
+    micReady,
+    acquireMic,
     finishRecording,
     resumeRecording,
-  } = useAudioCapture(micActive);
+  } = useAudioCapture({
+    listening: micActive,
+    sessionActive: sessionReady,
+  });
   finishRecordingRef.current = finishRecording;
   resumeRecordingRef.current = resumeRecording;
+  const micReadyRef = useRef(micReady);
+  const micStatusRef = useRef(micStatus);
+  micReadyRef.current = micReady;
+  micStatusRef.current = micStatus;
+  const acquireMicRef = useRef(acquireMic);
+  acquireMicRef.current = acquireMic;
 
   const resetLocal = useCallback(() => {
     sessionIdRef.current = null;
@@ -380,10 +391,15 @@ export function NewsApp({
     }
   }, [resetLocal, stopAudio]);
 
-  const startSession = useCallback(() => {
+  const startSession = useCallback(async () => {
     void unlockAudio();
     audioEnabledRef.current = true;
     setErrorMessage("");
+    const micOk = await acquireMicRef.current();
+    if (!micOk) {
+      setErrorMessage(micAccessHint());
+      return;
+    }
     setTranscript([]);
     setWrapUp(null);
     sendRef.current({
@@ -658,7 +674,16 @@ export function NewsApp({
   const isTtsLoading = ttsLoading && !isPlaying;
   const loadingLabel = loadingLabelFor(uiState);
 
-  const handleTap = useCallback(() => {
+  useEffect(() => {
+    if (uiState !== "LISTENING") return;
+    if (micStatus === "pending") {
+      setListenHint("Tap the round screen to enable mic");
+    } else if (micStatus !== "denied") {
+      setListenHint("Tap the round screen to submit");
+    }
+  }, [uiState, micStatus]);
+
+  const handleTap = useCallback(async () => {
     void unlockAudio();
     if (!connected) {
       setErrorMessage("Connecting…");
@@ -678,6 +703,19 @@ export function NewsApp({
     }
 
     if (state === "LISTENING") {
+      if (
+        !micReadyRef.current ||
+        micStatusRef.current === "pending" ||
+        micStatusRef.current === "denied"
+      ) {
+        const ok = await acquireMicRef.current();
+        if (!ok) {
+          setErrorMessage(micAccessHint());
+          return;
+        }
+        setListenHint("Tap the round screen to submit");
+        return;
+      }
       void submitRecording();
       return;
     }
@@ -785,7 +823,9 @@ export function NewsApp({
         <div className={`app-stage app-stage--news${deviceMode ? " app-stage--device" : ""}`}>
           <RoundScreen
             ref={roundScreenRef}
-            size={deviceMode ? 466 : 360}
+            responsive={deviceMode}
+            shape={deviceMode ? "panel" : "round"}
+            size={deviceMode ? undefined : 360}
             onTap={handleTap}
             interactive={interactive}
           >

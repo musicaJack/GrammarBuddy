@@ -27,6 +27,12 @@ export function MicLevelMeter({
     );
   }
 
+  if (status === "pending") {
+    return (
+      <p className="mic-status mic-status--error">点击圆屏开启麦克风</p>
+    );
+  }
+
   const label =
     peak >= SIGNAL_THRESHOLD
       ? "麦克风正常 · 正在收音…"

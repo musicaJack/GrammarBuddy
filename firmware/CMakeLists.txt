@@ -14,7 +14,9 @@ if(NOT EXISTS "${FIFAWATCH_FIRMWARE}/main/hal/hal.cpp")
         "Clone M5_Stack_FIFAWatch and set env FIFAWATCH_FIRMWARE to its firmware/ directory.")
 endif()
 
-set(EXTRA_COMPONENT_DIRS "${FIFAWATCH_FIRMWARE}/components")
+set(EXTRA_COMPONENT_DIRS
+    "${CMAKE_CURRENT_LIST_DIR}/components"
+    "${FIFAWATCH_FIRMWARE}/components")
 
 # sdkconfig.defaults (primary; must exist as a single file path)
 if(EXISTS "${CMAKE_CURRENT_LIST_DIR}/sdkconfig.defaults")

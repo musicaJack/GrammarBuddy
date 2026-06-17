@@ -22,8 +22,10 @@ copy .env.example .env
 py -3 -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
+
+StopWatch 固件需直连后端时，`--host 0.0.0.0` 必填。若仅用手机浏览器测 Web 前端，后端监听 `127.0.0.1` 也可（请求经 Vite 代理转发）。
 
 ### 2. 前端（React）
 
@@ -33,9 +35,23 @@ npm install
 npm run dev
 ```
 
-浏览器打开 http://localhost:5173
+本机：https://localhost:5173（首次需接受自签名证书警告）
 
-**StopWatch 设备预览模式**：http://localhost:5173/?device=1（隐藏侧栏，466 圆屏，A/B 键盘映射）
+**手机 / 平板（同一 WiFi）**：`npm run dev` 启动后终端会显示 Network 地址，请用 **https**：
+
+```text
+https://192.168.3.219:5173
+```
+
+圆屏预览：`https://192.168.3.219:5173/?device=1`
+
+说明：
+
+- 已启用 `@vitejs/plugin-basic-ssl` 自签名 HTTPS，手机浏览器才能使用麦克风。
+- 手机首次打开会提示证书不受信任，选择「继续访问」或「高级 → 继续」即可。
+- `server.host: true`，`/api` 与 `/ws` 由 dev 服务器代理到本机 `127.0.0.1:8000`，手机只需能访问 PC 的 **5173** 端口。
+- Windows 防火墙需放行 **5173**（与后端 8000 类似）；WiFi 建议设为「专用网络」。
+- **若 https://IP:5173 提示「无法提供安全链接」**：多半是 5173 上还在跑旧的 **HTTP** 版 dev 服务。关掉所有 `npm run dev` 后重新启动，以终端打印的 **https://** 地址为准（已设 `strictPort`，不会悄悄换到别的端口）。
 
 API 版本：http://localhost:8000/api/version
 
@@ -55,6 +71,7 @@ API 版本：http://localhost:8000/api/version
 
 文档：
 
+- [生产部署（子路径 /GrammerBuddy/）](docs/deploy-production.md) — 含 `deploy/*.sh` 与 GitHub Actions
 - [三端解决方案 v0.4](docs/three_client_solution_v0.4.md) — PC 模拟器 + StopWatch + 后端
 - [Launcher 集成说明](docs/launcher_integration_v0.2.md) — `M5_Stack_FIFAWatch`
 - [本地 MVP 方案](docs/local_mvp_solution_v0.1.md)

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { WrapUpPanel } from "./components/WrapUpPanel";
 import type { NewsHistoryDetail, NewsHistorySummary, WrapUpPayload } from "./types";
+import { withBase } from "./utils/basePath";
 
 function formatWhen(iso: string): string {
   if (!iso) return "";
@@ -27,7 +28,7 @@ export function NewsHistoryApp({ onBack }: { onBack: () => void }) {
     setLoading(true);
     setError("");
     try {
-      const resp = await fetch("/api/news/history");
+      const resp = await fetch(withBase("/api/news/history"));
       if (!resp.ok) throw new Error("Could not load history");
       const data = (await resp.json()) as { sessions: NewsHistorySummary[] };
       setSessions(data.sessions ?? []);
@@ -46,7 +47,7 @@ export function NewsHistoryApp({ onBack }: { onBack: () => void }) {
     setLoading(true);
     setError("");
     try {
-      const resp = await fetch(`/api/news/history/${encodeURIComponent(id)}`);
+      const resp = await fetch(withBase(`/api/news/history/${encodeURIComponent(id)}`));
       if (!resp.ok) throw new Error("Could not load practice detail");
       const data = (await resp.json()) as NewsHistoryDetail;
       setSelected(data);

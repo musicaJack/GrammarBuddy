@@ -1,13 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { DeviceModeBadge } from "./components/DeviceModeBadge";
 import { HighlightedFeedback } from "./components/HighlightedFeedback";
 import { MicLevelMeter } from "./components/MicLevelMeter";
 import { RoundScreen } from "./components/RoundScreen";
-import { useAudioCapture, type MicLevelStatus } from "./hooks/useAudioCapture";
+import { RoundChatLog, type ChatEntry } from "./components/RoundChatLog";
+import { useAudioCapture, micAccessHint, type MicLevelStatus } from "./hooks/useAudioCapture";
 import { useAudioPlayer } from "./hooks/useAudioPlayer";
+import { useChatLog } from "./hooks/useChatLog";
 import { AsrDisplay } from "./components/AsrDisplay";
 import { SideNextButton, SidePowerButton } from "./components/SideControls";
 import { RepeatCuePanel } from "./components/RepeatCuePanel";
 import { useWebSocket } from "./hooks/useWebSocket";
+import { withBase } from "./utils/basePath";
 import { buildClientPayload } from "./utils/clientInfo";
 import type { GrammarPayload, LessonSummary, UIState, WSMessage } from "./types";
 
@@ -44,6 +48,14 @@ function ScreenContent({
   micStatus,
   repeatTarget,
   deviceMode,
+  chatEntries,
+  chatPendingUser,
+  chatPendingUserText,
+  asrPending,
+  submitting,
+  connected,
+  onDeviceStart,
+  onChangeTopic,
 }: {
   uiState: UIState;
   currentQuestion: string;
@@ -59,7 +71,71 @@ function ScreenContent({
   micStatus: MicLevelStatus;
   repeatTarget: string;
   deviceMode: boolean;
+  chatEntries: ChatEntry[];
+  chatPendingUser: boolean;
+  chatPendingUserText: string;
+  asrPending: boolean;
+  submitting: boolean;
+  connected: boolean;
+  onDeviceStart: () => void;
+  onChangeTopic: () => void;
 }) {
+  const showDeviceChat =
+    deviceMode &&
+    !errorMessage &&
+    uiState !== "HOME" &&
+    uiState !== "SCENARIO_COMPLETE";
+
+  if (showDeviceChat) {
+    const micScale = 1 + micLevel / 400;
+    return (
+      <div className="round-chat-layout">
+        <p className="round-chat-layout__badge">
+          {roundNumber}/{totalRounds} · {lessonLabel}
+        </p>
+        <RoundChatLog
+          entries={chatEntries}
+          pendingUser={chatPendingUser}
+          pendingUserText={chatPendingUserText}
+        />
+        {uiState === "LISTENING" && !submitting && !asrPending ? (
+          <div className="round-chat-layout__footer">
+            <div
+              className="round-chat-layout__mic"
+              style={{ transform: `scale(${micScale.toFixed(2)})` }}
+              aria-hidden
+            >
+              🎤
+            </div>
+            <MicLevelMeter level={micLevel} bars={micBars} status={micStatus} />
+            <p className="round-chat-layout__hint">{listenHint}</p>
+          </div>
+        ) : null}
+        {uiState === "THINKING" || asrPending || submitting ? (
+          <div className="round-chat-layout__footer round-chat-layout__footer--status">
+            <div className="thinking-dots thinking-dots--compact">
+              <span />
+              <span />
+              <span />
+            </div>
+            <p className="round-chat-layout__hint">识别中…</p>
+          </div>
+        ) : null}
+        {uiState === "FEEDBACK" ? (
+          <p className="round-chat-layout__hint">{feedbackHint}</p>
+        ) : null}
+        {uiState === "PRACTICE" || uiState === "PRACTICE_SUCCESS" ? (
+          <p className="round-chat-layout__hint">
+            {uiState === "PRACTICE_SUCCESS" ? "太棒了！" : "听完后跟读…"}
+          </p>
+        ) : null}
+        {uiState === "ASKING" ? (
+          <p className="round-chat-layout__hint">🔊 播放中…</p>
+        ) : null}
+      </div>
+    );
+  }
+
   if (errorMessage) {
     return (
       <>
@@ -71,14 +147,48 @@ function ScreenContent({
   }
 
   if (uiState === "HOME") {
+    if (deviceMode) {
+      return (
+        <div className="device-home">
+          <div className="device-home__hero">
+            <p className="screen-title">Let's Learn!</p>
+            <p className="screen-sub">{lessonLabel || "Grammar practice"}</p>
+          </div>
+          <div className="device-home__actions">
+            <button
+              type="button"
+              className="device-btn device-btn--primary"
+              disabled={!connected}
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                onDeviceStart();
+              }}
+            >
+              {connected ? "Start" : "Connecting…"}
+            </button>
+            <button
+              type="button"
+              className="device-btn device-btn--secondary"
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => {
+                e.stopPropagation();
+                onChangeTopic();
+              }}
+            >
+              Change topic
+            </button>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <>
         <div className="progress-ring" />
         <p className="screen-title">Let's Learn!</p>
         <p className="screen-sub">{lessonLabel || "Tap to start"}</p>
-        <p className="tap-hint">
-          {deviceMode ? "BtnA 开始 · BtnB 换主题" : "或点左侧红色按钮开始"}
-        </p>
+        <p className="tap-hint">或点左侧红色按钮开始</p>
       </>
     );
   }
@@ -289,23 +399,47 @@ export function GrammarApp({
   const { enqueue, runAfterIdle, stop: stopAudio, unlock: unlockAudio } =
     useAudioPlayer();
 
+  const {
+    entries: chatEntries,
+    appendAssistant,
+    appendUser,
+    reset: resetChat,
+  } = useChatLog();
+  const appendAssistantRef = useRef(appendAssistant);
+  const appendUserRef = useRef(appendUser);
+  appendAssistantRef.current = appendAssistant;
+  appendUserRef.current = appendUser;
+  const deviceModeRef = useRef(deviceMode);
+  deviceModeRef.current = deviceMode;
+
   const micActive = uiState === "LISTENING";
   const {
     level: micLevel,
     bars: micBars,
     status: micStatus,
+    micReady,
+    acquireMic,
     finishRecording,
     resumeRecording,
-  } = useAudioCapture(micActive);
+  } = useAudioCapture({
+    listening: micActive,
+    sessionActive: sessionReady,
+  });
   finishRecordingRef.current = finishRecording;
   resumeRecordingRef.current = resumeRecording;
+  const micReadyRef = useRef(micReady);
+  const micStatusRef = useRef(micStatus);
+  micReadyRef.current = micReady;
+  micStatusRef.current = micStatus;
+  const acquireMicRef = useRef(acquireMic);
+  acquireMicRef.current = acquireMic;
 
   const currentLessonId = lessons[lessonIndex]?.id ?? "present_simple";
   const nextLessonIndex = (lessonIndex + 1) % Math.max(lessons.length, 1);
   const nextLessonName = lessons[nextLessonIndex]?.display_name ?? "";
 
   useEffect(() => {
-    fetch("/api/lessons")
+    fetch(withBase("/api/lessons"))
       .then((r) => r.json())
       .then((data: { lessons?: LessonSummary[] }) => {
         if (data.lessons?.length) {
@@ -335,14 +469,20 @@ export function GrammarApp({
     setRoundNumber(1);
     setTotalRounds(5);
     setRepeatTarget("");
+    resetChat();
     setUiState("HOME");
-  }, []);
+  }, [resetChat]);
 
   const startSession = useCallback(
-    (lessonId?: string) => {
+    async (lessonId?: string) => {
       void unlockAudio();
       audioEnabledRef.current = true;
       setErrorMessage("");
+      const micOk = await acquireMicRef.current();
+      if (!micOk) {
+        setErrorMessage(micAccessHint());
+        return;
+      }
       sendRef.current({
         type: "control",
         payload: {
@@ -397,6 +537,14 @@ export function GrammarApp({
       startSession(nextLesson.id);
     }
   }, [lessonIndex, lessons, resetSession, sessionReady, startSession, stopAudio, unlockAudio]);
+
+  const changeTopicOnHome = useCallback(() => {
+    if (lessons.length === 0) return;
+    const nextIdx = (lessonIndex + 1) % lessons.length;
+    const nextLesson = lessons[nextIdx];
+    setLessonIndex(nextIdx);
+    setLessonLabel(nextLesson.display_name);
+  }, [lessonIndex, lessons]);
 
   const beginListening = useCallback(() => {
     const state = uiStateRef.current;
@@ -484,7 +632,11 @@ export function GrammarApp({
           format: String(msg.payload.format ?? "wav"),
         });
       } else if (msg.payload.text) {
-        enqueue({ text: String(msg.payload.text), format: "text_fallback" });
+        const text = String(msg.payload.text);
+        enqueue({ text, format: "text_fallback" });
+        if (deviceModeRef.current) {
+          appendAssistantRef.current(text);
+        }
       }
     },
     [enqueue],
@@ -556,8 +708,10 @@ export function GrammarApp({
         }
 
         if (action === "ask_question") {
+          let question = "";
           if (msg.payload.current_question) {
-            setCurrentQuestion(String(msg.payload.current_question));
+            question = String(msg.payload.current_question);
+            setCurrentQuestion(question);
           }
           if (msg.payload.round_number) {
             setRoundNumber(Number(msg.payload.round_number));
@@ -570,10 +724,14 @@ export function GrammarApp({
           setRepeatTarget("");
           setRecognizedText("");
           setAsrPending(false);
+          if (deviceModeRef.current && question.trim()) {
+            appendAssistantRef.current(question);
+          }
         }
 
         if (action === "asr_transcript" && msg.payload.text) {
-          setRecognizedText(String(msg.payload.text).trim());
+          const text = String(msg.payload.text).trim();
+          setRecognizedText(text);
           setAsrPending(false);
         }
 
@@ -607,18 +765,42 @@ export function GrammarApp({
         setUiState(payload.ui_state);
         if (payload.ui_state === "PRACTICE") {
           const target = repeatSentenceFromGrammar(payload);
-          if (target) setRepeatTarget(target);
+          if (target) {
+            setRepeatTarget(target);
+            if (deviceModeRef.current) {
+              const prompt =
+                payload.tts?.repeat_prompt?.trim() || "Repeat after me!";
+              appendAssistantRef.current(`${prompt}\n${target}`);
+            }
+          }
         }
         if (payload.ui_state === "PRACTICE_SUCCESS") {
           setRepeatTarget("");
         }
         if (payload.asr_text) {
-          setRecognizedText(payload.asr_text.trim());
+          const userText = payload.asr_text.trim();
+          setRecognizedText(userText);
           setAsrPending(false);
+          if (deviceModeRef.current && userText) {
+            appendUserRef.current(userText);
+          }
         }
         if (payload.ui_state === "FEEDBACK") {
           setContinuing(false);
           setFeedbackHint("点圆屏继续");
+          if (deviceModeRef.current) {
+            const parts: string[] = [];
+            if (payload.correction?.correct_sentence) {
+              parts.push(payload.correction.correct_sentence);
+            }
+            const tip =
+              payload.teaching?.kid_explanation ||
+              payload.teaching?.simple_explanation;
+            if (tip) parts.push(tip);
+            if (parts.length > 0) {
+              appendAssistantRef.current(parts.join("\n"));
+            }
+          }
         }
       }
 
@@ -646,13 +828,15 @@ export function GrammarApp({
   }, [grammar]);
 
   useEffect(() => {
-    if (uiState !== "LISTENING" || micStatus !== "denied") return;
-    setErrorMessage("请允许浏览器使用麦克风");
-    setSessionReady(false);
-    setUiState("HOME");
+    if (uiState !== "LISTENING") return;
+    if (micStatus === "pending") {
+      setListenHint("点击圆屏开启麦克风");
+    } else if (micStatus !== "denied") {
+      setListenHint("说完点圆屏结束");
+    }
   }, [uiState, micStatus]);
 
-  const handleTap = useCallback(() => {
+  const handleTap = useCallback(async () => {
     void unlockAudio();
 
     if (!connected) {
@@ -661,6 +845,19 @@ export function GrammarApp({
     }
 
     if (uiStateRef.current === "LISTENING") {
+      if (
+        !micReadyRef.current ||
+        micStatusRef.current === "pending" ||
+        micStatusRef.current === "denied"
+      ) {
+        const ok = await acquireMicRef.current();
+        if (!ok) {
+          setErrorMessage(micAccessHint());
+          return;
+        }
+        setListenHint("说完点圆屏结束");
+        return;
+      }
       void submitRecording();
       return;
     }
@@ -712,7 +909,12 @@ export function GrammarApp({
     (!sessionReady ||
       !!errorMessage ||
       uiState === "LISTENING" ||
-      uiState === "FEEDBACK");
+      uiState === "FEEDBACK") &&
+    !(deviceMode && uiState === "HOME");
+
+  const panelCompact =
+    deviceMode &&
+    (uiState === "HOME" || uiState === "SCENARIO_COMPLETE" || !!errorMessage);
 
   const interactiveRef = useRef(interactive);
   interactiveRef.current = interactive;
@@ -759,7 +961,11 @@ export function GrammarApp({
 
       if (deviceMode && (e.key === "b" || e.key === "B")) {
         e.preventDefault();
-        switchToNextLesson();
+        if (uiStateRef.current === "HOME") {
+          changeTopicOnHome();
+        } else {
+          switchToNextLesson();
+        }
         return;
       }
 
@@ -776,7 +982,7 @@ export function GrammarApp({
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [deviceMode, switchToNextLesson]);
+  }, [deviceMode, switchToNextLesson, changeTopicOnHome]);
 
   const showRepeatCue =
     repeatTarget.length > 0 &&
@@ -792,6 +998,11 @@ export function GrammarApp({
 
   return (
     <div className={`app-shell${deviceMode ? " app-shell--device" : ""}`}>
+      {deviceMode ? (
+        <div className="device-chrome">
+          <DeviceModeBadge deviceMode compact />
+        </div>
+      ) : null}
       <div className={`app-layout${deviceMode ? " app-layout--device" : ""}`}>
         {!deviceMode ? (
           <SidePowerButton
@@ -803,7 +1014,10 @@ export function GrammarApp({
         <div className={`app-stage${deviceMode ? " app-stage--device" : ""}`}>
           <RoundScreen
             ref={roundScreenRef}
-            size={deviceMode ? 466 : 360}
+            responsive={deviceMode}
+            shape={deviceMode ? "panel" : "round"}
+            compact={panelCompact}
+            size={deviceMode ? undefined : 360}
             onTap={handleTap}
             interactive={interactive}
           >
@@ -822,6 +1036,21 @@ export function GrammarApp({
               micStatus={micStatus ?? "idle"}
               repeatTarget={repeatTarget}
               deviceMode={deviceMode}
+              chatEntries={chatEntries}
+              chatPendingUser={
+                asrPending ||
+                submitting ||
+                (uiState === "LISTENING" && micStatus === "active")
+              }
+              chatPendingUserText={
+                recognizedText ||
+                (uiState === "LISTENING" ? "Speak now…" : "…")
+              }
+              asrPending={asrPending}
+              submitting={submitting}
+              connected={connected}
+              onDeviceStart={() => void handleTap()}
+              onChangeTopic={changeTopicOnHome}
             />
           </RoundScreen>
           {!deviceMode && showRepeatCue ? (
@@ -836,7 +1065,7 @@ export function GrammarApp({
           />
         ) : null}
       </div>
-      <div className="app-footer-row">
+      <div className={`app-footer-row${deviceMode ? " app-footer-row--device" : ""}`}>
         <button type="button" className="back-link" onClick={() => {
           if (running) stopSession();
           onBack();
@@ -844,8 +1073,8 @@ export function GrammarApp({
           ← 返回主界面
         </button>
         {!deviceMode ? <AsrDisplay text={recognizedText} pending={asrPending} /> : null}
-        {deviceMode ? (
-          <span className="device-key-hint">BtnA/Space 主操作 · B 换主题 · P 开/停</span>
+        {deviceMode && uiState !== "HOME" ? (
+          <span className="device-key-hint">Tap panel · B change topic · P start/stop</span>
         ) : null}
       </div>
     </div>

@@ -1,12 +1,15 @@
 #pragma once
 
+#include <grammarbuddy_config.h>
 #include <cstddef>
 
 namespace grammarbuddy {
 
-constexpr const char* kDefaultWsUrl = "ws://192.168.1.100:8000/ws/session";
+constexpr const char* kDefaultWsUrl = GRAMMARBUDDY_DEFAULT_WS_URL;
 
-/** Load ws_url from NVS namespace "grammabuddy". Returns false if missing. */
-bool load_ws_url(char* buffer, size_t buffer_size);
+inline bool load_ws_url(char* buffer, size_t buffer_size)
+{
+    return grammarbuddy_config_load_ws_url(buffer, buffer_size);
+}
 
 }  // namespace grammarbuddy

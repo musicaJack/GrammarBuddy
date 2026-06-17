@@ -1,0 +1,9 @@
+idf_component_register(
+    SRCS
+        "grammarbuddy_config.cpp"
+    INCLUDE_DIRS
+        "include"
+    REQUIRES
+        nvs_flash
+        json
+)

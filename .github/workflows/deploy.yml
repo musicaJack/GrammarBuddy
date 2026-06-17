@@ -1,0 +1,85 @@
+name: Deploy GrammarBuddy
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "${{ secrets.SERVER_HOST }}" >> ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+          if [ -n "${{ secrets.SSH_PASSPHRASE }}" ]; then
+            sudo apt-get update -qq
+            sudo apt-get install -y -qq sshpass
+          fi
+
+      - name: Deploy on server
+        env:
+          DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          GIT_BRANCH: ${{ github.ref_name }}
+        run: |
+          SSH_OPTS="-i ~/.ssh/deploy_key -o StrictHostKeyChecking=no"
+          if [ -n "${{ secrets.SSH_PASSPHRASE }}" ]; then
+            SSH_CMD="sshpass -p \"${{ secrets.SSH_PASSPHRASE }}\" ssh $SSH_OPTS"
+          else
+            SSH_CMD="ssh $SSH_OPTS"
+          fi
+
+          $SSH_CMD "${{ secrets.SERVER_USER }}@${{ secrets.SERVER_HOST }}" \
+            "DEPLOY_PATH='${{ secrets.DEPLOY_PATH }}' GIT_BRANCH='${{ github.ref_name }}' bash -s" << 'REMOTE'
+          set -euo pipefail
+
+          if [ -z "${DEPLOY_PATH:-}" ]; then
+            echo "ERROR: DEPLOY_PATH secret is empty"
+            exit 1
+          fi
+
+          if [ ! -d "$DEPLOY_PATH/.git" ]; then
+            echo "ERROR: $DEPLOY_PATH is not a git clone."
+            echo "Run on server first:"
+            echo "  bash deploy/setup-first-time.sh $DEPLOY_PATH git@github.com:<owner>/GrammarBuddy.git"
+            exit 1
+          fi
+
+          cd "$DEPLOY_PATH"
+          echo "=== git pull ($GIT_BRANCH) ==="
+          git fetch origin
+          git checkout "$GIT_BRANCH" 2>/dev/null || git checkout -B "$GIT_BRANCH" "origin/$GIT_BRANCH"
+          git pull origin "$GIT_BRANCH"
+
+          bash deploy/deploy.sh
+          REMOTE
+
+      - name: Verify public endpoints
+        run: |
+          sleep 8
+          bash -c '
+            set -e
+            BASE="${{ secrets.GRAMMARBUDDY_BASE_URL }}"
+            if [ -z "$BASE" ]; then
+              BASE="https://www.beingdigital.cn/GrammerBuddy"
+            fi
+            code=$(curl -s -o /dev/null -w "%{http_code}" "$BASE/health" || echo "000")
+            echo "Health HTTP: $code"
+            if [ "$code" != "200" ]; then
+              echo "WARN: public health not 200 (mySite nginx may need /GrammerBuddy/ snippet)"
+              exit 0
+            fi
+          '
+
+      - name: Cleanup
+        if: always()
+        run: rm -f ~/.ssh/deploy_key

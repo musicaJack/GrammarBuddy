@@ -20,3 +20,24 @@ config CHRONECORE_WEATHER_DEFAULT_CITY
         Location id, e.g. beijing, kunming, shanghai.
 
 endmenu
+
+menu "GrammarBuddy"
+
+config GRAMMARBUDDY_WIFI_SERVER_CONFIG
+    bool "Backend server fields on WiFi provisioning page"
+    default y
+    help
+        Show GrammarBuddy backend host and port on the WiFi captive portal main tab.
+
+config GRAMMARBUDDY_DEFAULT_SERVER_HOST
+    string "Default backend server host"
+    default "192.168.1.100"
+    depends on GRAMMARBUDDY_WIFI_SERVER_CONFIG
+
+config GRAMMARBUDDY_DEFAULT_SERVER_PORT
+    int "Default backend server port"
+    default 8000
+    range 1 65535
+    depends on GRAMMARBUDDY_WIFI_SERVER_CONFIG
+
+endmenu
